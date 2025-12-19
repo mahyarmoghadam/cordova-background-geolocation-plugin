@@ -87,6 +87,9 @@ public class ConfigMapper {
         if (jObject.has("httpHeaders")) {
             config.setHttpHeaders(jObject.getJSONObject("httpHeaders"));
         }
+        if (jObject.has("useWebViewCookieStore")) {
+            config.setUseWebViewCookieStore(jObject.getBoolean("useWebViewCookieStore"));
+        }
         if (jObject.has("maxLocations")) {
             config.setMaxLocations(jObject.getInt("maxLocations"));
         }
@@ -126,6 +129,7 @@ public class ConfigMapper {
         json.put("syncUrl", config.getSyncUrl() != Config.NullString  ? config.getSyncUrl() : JSONObject.NULL);
         json.put("syncThreshold", config.getSyncThreshold());
         json.put("httpHeaders", new JSONObject(config.getHttpHeaders()));
+        json.put("useWebViewCookieStore", config.getUseWebViewCookieStore());
         json.put("maxLocations", config.getMaxLocations());
         LocationTemplate tpl = config.getTemplate();
         Object template = JSONObject.NULL;

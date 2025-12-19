@@ -82,12 +82,13 @@
         @COMMA_SEP @CC_COLUMN_NAME_SYNC_URL
         @COMMA_SEP @CC_COLUMN_NAME_SYNC_THRESHOLD
         @COMMA_SEP @CC_COLUMN_NAME_HEADERS
+        @COMMA_SEP @CC_COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE
         @COMMA_SEP @CC_COLUMN_NAME_SAVE_BATTERY
         @COMMA_SEP @CC_COLUMN_NAME_MAX_LOCATIONS
         @COMMA_SEP @CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES
         @COMMA_SEP @CC_COLUMN_NAME_TEMPLATE
         @COMMA_SEP @CC_COLUMN_NAME_LAST_UPDATED_AT
-        @") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DateTime('now'))";
+        @") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DateTime('now'))";
 
     [queue inDatabase:^(FMDatabase *database) {
         success = [database executeUpdate:sql,
@@ -114,6 +115,7 @@
                     [config hasSyncUrl] ? config.syncUrl : @CC_COLUMN_NAME_NULLABLE,
                     [config hasSyncThreshold] ? config.syncThreshold : @CC_COLUMN_NAME_NULLABLE,
                     (httpHeadersString != nil) ? httpHeadersString : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasUseWebViewCookieStore] ? config._useWebViewCookieStore : @CC_COLUMN_NAME_NULLABLE,
                     [config hasSaveBatteryOnBackground] ? config._saveBatteryOnBackground : @CC_COLUMN_NAME_NULLABLE,
                     [config hasMaxLocations] ? config.maxLocations : @CC_COLUMN_NAME_NULLABLE,
                     [config hasPauseLocationUpdates] ? config._pauseLocationUpdates : @CC_COLUMN_NAME_NULLABLE,
@@ -162,6 +164,7 @@
     @COMMA_SEP @CC_COLUMN_NAME_MAX_LOCATIONS
     @COMMA_SEP @CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES
     @COMMA_SEP @CC_COLUMN_NAME_TEMPLATE
+    @COMMA_SEP @CC_COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE
     @" FROM " @CC_TABLE_NAME @" WHERE " @CC_COLUMN_NAME_ID @" = 1";
     
     [queue inDatabase:^(FMDatabase *database) {
@@ -223,6 +226,9 @@
                     NSData *jsonTemplate = [templateAsString dataUsingEncoding:NSUTF8StringEncoding];
                     config._template = [NSJSONSerialization JSONObjectWithData:jsonTemplate options:0 error:nil];
                 }
+            }
+            if ([self isNonNull:rs columnIndex:27]) {
+                config._useWebViewCookieStore = [NSNumber numberWithBool:[rs intForColumnIndex:27] == 1 ? YES : NO];
             }
         }
         

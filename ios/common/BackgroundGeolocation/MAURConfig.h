@@ -30,6 +30,7 @@ enum {
 @property NSString *syncUrl;
 @property NSNumber *syncThreshold;
 @property NSMutableDictionary* httpHeaders;
+@property NSNumber *_useWebViewCookieStore;
 @property NSNumber *_saveBatteryOnBackground;
 @property NSNumber *maxLocations;
 @property NSNumber *_pauseLocationUpdates;
@@ -53,6 +54,7 @@ enum {
 - (BOOL) hasValidSyncUrl;
 - (BOOL) hasSyncThreshold;
 - (BOOL) hasHttpHeaders;
+- (BOOL) hasUseWebViewCookieStore;
 - (BOOL) hasSaveBatteryOnBackground;
 - (BOOL) hasMaxLocations;
 - (BOOL) hasPauseLocationUpdates;
@@ -63,6 +65,7 @@ enum {
 - (BOOL) stopOnTerminate;
 - (BOOL) saveBatteryOnBackground;
 - (BOOL) pauseLocationUpdates;
+- (BOOL) useWebViewCookieStore;
 - (CLActivityType) decodeActivityType;
 - (NSInteger) decodeDesiredAccuracy;
 - (NSString*) getHttpHeadersAsString:(NSError * __autoreleasing *)outError;

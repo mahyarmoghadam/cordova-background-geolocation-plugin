@@ -266,6 +266,7 @@
         </config-file>
         <framework src="CoreLocation.framework" />
         <framework src="SystemConfiguration.framework" />
+        <framework src="WebKit.framework" />
         <framework src="AudioToolbox.framework" weak="true" />
         <framework src="AVFoundation.framework" weak="true" />
         <framework src="libsqlite3.dylib" weak="true" />
@@ -302,6 +303,8 @@
         <source-file src="ios/common/BackgroundGeolocation/MAURBackgroundTaskManager.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURConfig.h" />
         <source-file src="ios/common/BackgroundGeolocation/MAURConfig.m" />
+        <header-file src="ios/common/BackgroundGeolocation/MAURCookieBridge.h" />
+        <source-file src="ios/common/BackgroundGeolocation/MAURCookieBridge.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURConfigurationContract.h" />
         <source-file src="ios/common/BackgroundGeolocation/MAURConfigurationContract.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURDistanceFilterLocationProvider.h" />

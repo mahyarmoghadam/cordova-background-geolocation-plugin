@@ -215,18 +215,20 @@ public class BackgroundGeolocationFacade {
     public void start() {
         logger.debug("Starting service");
 
-        PermissionManager permissionManager = PermissionManager.getInstance(getContext());
+        final PermissionManager permissionManager = PermissionManager.getInstance(getContext());
         permissionManager.checkPermissions(Arrays.asList(PERMISSIONS), new PermissionManager.PermissionRequestListener() {
             @Override
             public void onPermissionGranted() {
                 logger.info("User granted requested permissions");
-                permissionManager.checkPermissions(Arrays.asList(Manifest.permission.POST_NOTIFICATIONS), new PermissionManager.PermissionRequestListener() {
-                    @Override
-                    public void onPermissionGranted() {} // noop
-        
-                    @Override
-                    public void onPermissionDenied(DeniedPermissions deniedPermissions) {} // noop
-                });
+                if (Build.VERSION.SDK_INT >= 33) {
+                    permissionManager.checkPermissions(Arrays.asList("android.permission.POST_NOTIFICATIONS"), new PermissionManager.PermissionRequestListener() {
+                        @Override
+                        public void onPermissionGranted() {} // noop
+
+                        @Override
+                        public void onPermissionDenied(DeniedPermissions deniedPermissions) {} // noop
+                    });
+                }
 
                 // watch location mode changes
                 registerLocationModeChangeReceiver();

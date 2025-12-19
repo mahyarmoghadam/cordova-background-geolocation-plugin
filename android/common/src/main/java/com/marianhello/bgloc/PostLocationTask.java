@@ -152,7 +152,7 @@ public class PostLocationTask {
         int responseCode;
 
         try {
-            responseCode = HttpPostService.postJSON(url, jsonLocations, mConfig.getHttpHeaders());
+            responseCode = HttpPostService.postJSON(url, jsonLocations, mConfig.getHttpHeaders(), mConfig.getUseWebViewCookieStore());
         } catch (Exception e) {
             mHasConnectivity = mConnectivityListener.hasConnectivity();
             logger.warn("Error while posting locations: {}", e.getMessage());

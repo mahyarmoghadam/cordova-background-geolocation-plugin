@@ -38,6 +38,7 @@ public final class SQLiteConfigurationContract {
         public static final String COLUMN_NAME_SYNC_URL = "sync_url";
         public static final String COLUMN_NAME_SYNC_THRESHOLD = "sync_threshold";
         public static final String COLUMN_NAME_HEADERS = "http_headers";
+        public static final String COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE = "use_webview_cookie_store";
         public static final String COLUMN_NAME_MAX_LOCATIONS = "max_locations";
         public static final String COLUMN_NAME_TEMPLATE = "template";
 
@@ -66,6 +67,7 @@ public final class SQLiteConfigurationContract {
                         ConfigurationEntry.COLUMN_NAME_SYNC_URL + TEXT_TYPE + COMMA_SEP +
                         ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD + INTEGER_TYPE + COMMA_SEP +
                         ConfigurationEntry.COLUMN_NAME_HEADERS + TEXT_TYPE + COMMA_SEP +
+                        ConfigurationEntry.COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE + INTEGER_TYPE + COMMA_SEP +
                         ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS + INTEGER_TYPE + COMMA_SEP +
                         ConfigurationEntry.COLUMN_NAME_TEMPLATE + TEXT_TYPE +
                         " )";

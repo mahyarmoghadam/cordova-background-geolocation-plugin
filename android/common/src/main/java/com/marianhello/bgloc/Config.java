@@ -61,6 +61,7 @@ public class Config implements Parcelable
     private String syncUrl;
     private Integer syncThreshold;
     private HashMap httpHeaders;
+    private Boolean useWebViewCookieStore;
     private Integer maxLocations;
     private LocationTemplate template;
 
@@ -91,6 +92,7 @@ public class Config implements Parcelable
         this.syncUrl = config.syncUrl;
         this.syncThreshold = config.syncThreshold;
         this.httpHeaders = CloneHelper.deepCopy(config.httpHeaders);
+        this.useWebViewCookieStore = config.useWebViewCookieStore;
         this.maxLocations = config.maxLocations;
         if (config.template instanceof AbstractLocationTemplate) {
             this.template = ((AbstractLocationTemplate)config.template).clone();
@@ -123,6 +125,7 @@ public class Config implements Parcelable
         Bundle bundle = in.readBundle();
         setHttpHeaders((HashMap<String, String>) bundle.getSerializable("httpHeaders"));
         setTemplate((LocationTemplate) bundle.getSerializable(AbstractLocationTemplate.BUNDLE_KEY));
+        setUseWebViewCookieStore((Boolean) in.readValue(null));
     }
 
     public static Config getDefault() {
@@ -149,6 +152,7 @@ public class Config implements Parcelable
         config.syncUrl = "";
         config.syncThreshold = 100;
         config.httpHeaders = null;
+        config.useWebViewCookieStore = false;
         config.maxLocations = 10000;
         config.template = null;
 
@@ -187,6 +191,7 @@ public class Config implements Parcelable
         bundle.putSerializable("httpHeaders", getHttpHeaders());
         bundle.putSerializable(AbstractLocationTemplate.BUNDLE_KEY, (AbstractLocationTemplate) getTemplate());
         out.writeBundle(bundle);
+        out.writeValue(getUseWebViewCookieStore());
     }
 
     public static final Parcelable.Creator<Config> CREATOR
@@ -467,6 +472,18 @@ public class Config implements Parcelable
         return httpHeaders != null;
     }
 
+    public boolean hasUseWebViewCookieStore() {
+        return useWebViewCookieStore != null;
+    }
+
+    public Boolean getUseWebViewCookieStore() {
+        return useWebViewCookieStore != null && useWebViewCookieStore;
+    }
+
+    public void setUseWebViewCookieStore(Boolean useWebViewCookieStore) {
+        this.useWebViewCookieStore = useWebViewCookieStore;
+    }
+
     public HashMap<String, String> getHttpHeaders() {
         if (!hasHttpHeaders()) {
             httpHeaders = new HashMap<String, String>();
@@ -545,6 +562,7 @@ public class Config implements Parcelable
                 .append(" syncUrl=").append(getSyncUrl())
                 .append(" syncThreshold=").append(getSyncThreshold())
                 .append(" httpHeaders=").append(getHttpHeaders().toString())
+                .append(" useWebViewCookieStore=").append(getUseWebViewCookieStore())
                 .append(" maxLocations=").append(getMaxLocations())
                 .append(" postTemplate=").append(hasTemplate() ? getTemplate().toString() : null)
                 .append("]")
@@ -632,6 +650,9 @@ public class Config implements Parcelable
         }
         if (config2.hasHttpHeaders()) {
             merger.setHttpHeaders(config2.getHttpHeaders());
+        }
+        if (config2.hasUseWebViewCookieStore()) {
+            merger.setUseWebViewCookieStore(config2.getUseWebViewCookieStore());
         }
         if (config2.hasMaxLocations()) {
             merger.setMaxLocations(config2.getMaxLocations());

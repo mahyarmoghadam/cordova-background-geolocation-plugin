@@ -34,6 +34,7 @@
 #define CC_COLUMN_NAME_SYNC_URL               "sync_url"
 #define CC_COLUMN_NAME_SYNC_THRESHOLD         "sync_threshold"
 #define CC_COLUMN_NAME_HEADERS                "http_headers"
+#define CC_COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE "use_webview_cookie_store"
 #define CC_COLUMN_NAME_SAVE_BATTERY           "save_battery"
 #define CC_COLUMN_NAME_MAX_LOCATIONS          "max_locations"
 #define CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES "pause_updates"

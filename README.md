@@ -76,6 +76,9 @@ BackgroundGeolocation.configure({
     httpHeaders: {
       'X-FOO': 'bar'
     },
+    // If your backend uses session cookies (e.g. Angular HttpClient withCredentials),
+    // enable this to let the native HTTP client share cookies with the WebView.
+    useWebViewCookieStore: true,
     // customize post properties
     postTemplate: {
       lat: '@latitude',

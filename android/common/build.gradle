@@ -13,7 +13,6 @@ def projDependencies = [
     [configuration: "testImplementation", dependency: testLibs.testRules],
     [configuration: "testImplementation", dependency: testLibs.junit],
     [configuration: "testImplementation", dependency: testLibs.json],
-    [configuration: "testImplementation", dependency: testLibs.robolectric],
     [configuration: "testImplementation", dependency: testLibs.mockitoCore],
     [configuration: "implementation", dependency: androidLibs.playServicesLocation],
     [configuration: "implementation", dependency: androidLibs.supportCompat],
@@ -31,6 +30,7 @@ buildscript {
             url 'https://maven.google.com/'
             name 'Google'
         }
+        mavenCentral()
         jcenter()
     }
     dependencies {
@@ -46,6 +46,7 @@ allprojects {
         maven {
             url 'https://maven.google.com'
         }
+        mavenCentral()
         jcenter()
     }
 }
@@ -90,6 +91,13 @@ android {
 dependencies {
     projDependencies.each {
         add(it.configuration, it.dependency)
+    }
+
+    // Robolectric tries to load org.bouncycastle.jce.provider.BouncyCastleProvider during sandbox init.
+    // On this legacy AGP/Jetifier stack, the upstream bcprov jars fail JetifyTransform.
+    // We exclude BouncyCastle from the dependency graph and provide a minimal test-only stub provider.
+    testImplementation(testLibs.robolectric) {
+        exclude group: 'org.bouncycastle'
     }
 
     implementation fileTree(include: ['*.jar'], dir: 'libs')

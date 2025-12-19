@@ -79,8 +79,10 @@ public class NotificationHelper {
             if (launchIntent != null) {
                 // NOTICE: testing apps might not have registered launch intent
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                        ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                final int ANDROID_SDK_31 = 31;
+                final int PENDING_INTENT_FLAG_IMMUTABLE = 0x04000000;
+                int flags = Build.VERSION.SDK_INT >= ANDROID_SDK_31
+                    ? PendingIntent.FLAG_CANCEL_CURRENT | PENDING_INTENT_FLAG_IMMUTABLE
                         : PendingIntent.FLAG_CANCEL_CURRENT;
                 PendingIntent contentIntent = PendingIntent.getActivity(appContext, 0, launchIntent, flags);
                 builder.setContentIntent(contentIntent);

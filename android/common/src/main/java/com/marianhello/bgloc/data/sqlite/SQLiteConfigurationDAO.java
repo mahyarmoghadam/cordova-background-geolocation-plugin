@@ -55,6 +55,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
       ConfigurationEntry.COLUMN_NAME_SYNC_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD,
       ConfigurationEntry.COLUMN_NAME_HEADERS,
+      ConfigurationEntry.COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE,
       ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS,
       ConfigurationEntry.COLUMN_NAME_TEMPLATE
     };
@@ -121,6 +122,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     config.setSyncUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_URL)));
     config.setSyncThreshold(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD)));
     config.setHttpHeaders(new JSONObject(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_HEADERS))));
+    config.setUseWebViewCookieStore((c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE)) == 1) ? true : false);
     config.setMaxLocations(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS)));
     config.setTemplate(LocationTemplateFactory.fromJSONString(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_TEMPLATE))));
 
@@ -152,6 +154,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_URL, config.getSyncUrl());
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD, config.getSyncThreshold());
     values.put(ConfigurationEntry.COLUMN_NAME_HEADERS, new JSONObject(config.getHttpHeaders()).toString());
+    values.put(ConfigurationEntry.COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE, (config.getUseWebViewCookieStore() == true) ? 1 : 0);
     values.put(ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS, config.getMaxLocations());
     values.put(ConfigurationEntry.COLUMN_NAME_TEMPLATE, config.hasTemplate() ? config.getTemplate().toString() : null);
 

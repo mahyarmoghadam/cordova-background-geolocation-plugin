@@ -14,8 +14,8 @@ When `option.url` is defined, each location is also immediately posted to url de
 If the post is successful, the location is marked as deleted in local db.
 
 When `option.syncUrl` is defined, all locations that fail to post locations will be coalesced and sent in some time later in a one single batch.
-Batch sync takes place only when the number of failed-to-post locations reaches `option.syncTreshold`.
-Locations are sent only in single batch, when the number of locations reaches `option.syncTreshold`. (No individual locations will be sent)
+Batch sync takes place only when the number of failed-to-post locations reaches `option.syncThreshold`.
+Locations are sent only in single batch, when the number of locations reaches `option.syncThreshold`. (No individual locations will be sent)
 
 The request body of posted locations is always an array, even when only one location is sent.
 
@@ -52,3 +52,23 @@ BackgroundGeolocation.configure({
 ```
 
 **Note:** Keep in mind that all locations (even a single one) will be sent as an array of object(s), when postTemplate is `jsonObject` and array of array(s) for `jsonArray`!
+
+## WebView cookie store (session cookies)
+
+If your backend uses secure session cookies (for example with Angular HttpClient using `withCredentials: true`),
+the plugin's native HTTP posting also needs to include those cookies.
+
+Enable `useWebViewCookieStore` to make the native HTTP client try to use the same cookie store as the WebView:
+
+- iOS: reads cookies from `WKHTTPCookieStore` (best-effort) and syncs response `Set-Cookie` into both `WKHTTPCookieStore` and `NSHTTPCookieStorage.sharedHTTPCookieStorage`.
+- Android: reads cookies via `android.webkit.CookieManager` and syncs response `Set-Cookie` back into it.
+
+**Hint:** This only affects the plugin's native HTTP posting to `url` / `syncUrl`. If you rely on cookie-based sessions, make sure your WebView has already established the session (received `Set-Cookie`) before expecting background posting to include it.
+
+```javascript
+BackgroundGeolocation.configure({
+  url: 'https://api.example.com/locations',
+  syncUrl: 'https://api.example.com/locations/sync',
+  useWebViewCookieStore: true
+});
+```

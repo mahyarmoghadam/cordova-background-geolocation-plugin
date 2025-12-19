@@ -285,6 +285,18 @@ export interface ConfigureOptions {
   httpHeaders?: any;
 
   /**
+   * When enabled, the native HTTP client used by this plugin will try to use
+   * the same cookie store as the WebView (session cookies), so authenticated
+   * backend requests using secure cookies can work.
+   *
+   * Platform: all
+   * Provider: all
+   *
+   * @default false
+   */
+  useWebViewCookieStore?: boolean;
+
+  /**
    * Limit maximum number of locations stored into db.
    *
    * Platform: all

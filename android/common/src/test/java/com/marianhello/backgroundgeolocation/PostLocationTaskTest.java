@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
  * https://github.com/google/agera/blob/master/extensions/net/src/test/java/com/google/android/agera/net/HttpFunctionsTest.java
  */
 @RunWith(RobolectricTestRunner.class)
+@org.robolectric.annotation.Config(sdk = 30, manifest = org.robolectric.annotation.Config.NONE)
 public class PostLocationTaskTest {
     private static final String TEST_PROTOCOL = "httptest";
     private static final String SLOW_PROTOCOL = "httpslow";

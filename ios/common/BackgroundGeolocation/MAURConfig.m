@@ -12,7 +12,7 @@
 
 @implementation MAURConfig 
 
-@synthesize stationaryRadius, distanceFilter, desiredAccuracy, _debug, activityType, activitiesInterval, _stopOnTerminate, url, syncUrl, syncThreshold, httpHeaders, _saveBatteryOnBackground, maxLocations, _pauseLocationUpdates, locationProvider, _template;
+@synthesize stationaryRadius, distanceFilter, desiredAccuracy, _debug, activityType, activitiesInterval, _stopOnTerminate, url, syncUrl, syncThreshold, httpHeaders, _useWebViewCookieStore, _saveBatteryOnBackground, maxLocations, _pauseLocationUpdates, locationProvider, _template;
 
 -(instancetype) initWithDefaults {
     self = [super init];
@@ -33,6 +33,7 @@
     syncThreshold = [NSNumber numberWithInt:100];
     _pauseLocationUpdates = [NSNumber numberWithBool:NO];
     locationProvider = [NSNumber numberWithInt:DISTANCE_FILTER_PROVIDER];
+    _useWebViewCookieStore = nil;
 //    template =
     
     return self;
@@ -74,6 +75,9 @@
     }
     if (config[@"httpHeaders"] != nil) {
         instance.httpHeaders = config[@"httpHeaders"];
+    }
+    if (isNotNull(config[@"useWebViewCookieStore"])) {
+        instance._useWebViewCookieStore = config[@"useWebViewCookieStore"];
     }
     if (isNotNull(config[@"saveBatteryOnBackground"])) {
         instance._saveBatteryOnBackground = config[@"saveBatteryOnBackground"];
@@ -139,6 +143,9 @@
     if ([newConfig hasHttpHeaders]) {
         merger.httpHeaders = newConfig.httpHeaders;
     }
+    if ([newConfig hasUseWebViewCookieStore]) {
+        merger._useWebViewCookieStore = newConfig._useWebViewCookieStore;
+    }
     if ([newConfig hasSaveBatteryOnBackground]) {
         merger._saveBatteryOnBackground = newConfig._saveBatteryOnBackground;
     }
@@ -173,6 +180,7 @@
         copy.syncUrl = syncUrl;
         copy.syncThreshold = syncThreshold;
         copy.httpHeaders = httpHeaders;
+        copy._useWebViewCookieStore = _useWebViewCookieStore;
         copy._saveBatteryOnBackground = _saveBatteryOnBackground;
         copy.maxLocations = maxLocations;
         copy._pauseLocationUpdates = _pauseLocationUpdates;
@@ -253,6 +261,16 @@
 - (BOOL) hasValidSyncUrl
 {
     return syncUrl != nil && syncUrl.length > 0;
+}
+
+- (BOOL) hasUseWebViewCookieStore
+{
+    return _useWebViewCookieStore != nil;
+}
+
+- (BOOL) useWebViewCookieStore
+{
+    return _useWebViewCookieStore != nil && [_useWebViewCookieStore boolValue];
 }
 
 - (void) setSyncUrl:(NSString*)newSyncUrl
@@ -461,6 +479,7 @@
     if ([self hasUrl]) [dict setObject:self.url forKey:@"url"];
     if ([self hasSyncUrl]) [dict setObject:self.syncUrl forKey:@"syncUrl"];
     if ([self hasHttpHeaders]) [dict setObject:self.httpHeaders forKey:@"httpHeaders"];
+    if ([self hasUseWebViewCookieStore]) [dict setObject:self._useWebViewCookieStore forKey:@"useWebViewCookieStore"];
     if ([self hasStationaryRadius]) [dict setObject:self.stationaryRadius forKey:@"stationaryRadius"];
     if ([self hasDistanceFilter]) [dict setObject:self.distanceFilter forKey:@"distanceFilter"];
     if ([self hasDesiredAccuracy]) [dict setObject:self.desiredAccuracy forKey:@"desiredAccuracy"];
@@ -478,7 +497,7 @@
 
 - (NSString *) description
 {
-    return [NSString stringWithFormat:@"Config: distanceFilter=%@ stationaryRadius=%@ desiredAccuracy=%@ activityType=%@ activitiesInterval=%@ isDebugging=%@ stopOnTerminate=%@ url=%@ syncThreshold=%@ maxLocations=%@ httpHeaders=%@ pauseLocationUpdates=%@ saveBatteryOnBackground=%@ locationProvider=%@ postTemplate=%@", self.distanceFilter, self.stationaryRadius, self.desiredAccuracy, self.activityType, self.activitiesInterval, self._debug, self._stopOnTerminate, self.url, self.syncThreshold, self.maxLocations, self.httpHeaders, self._pauseLocationUpdates, self._saveBatteryOnBackground, self.locationProvider, self._template];
+    return [NSString stringWithFormat:@"Config: distanceFilter=%@ stationaryRadius=%@ desiredAccuracy=%@ activityType=%@ activitiesInterval=%@ isDebugging=%@ stopOnTerminate=%@ url=%@ syncThreshold=%@ maxLocations=%@ httpHeaders=%@ useWebViewCookieStore=%@ pauseLocationUpdates=%@ saveBatteryOnBackground=%@ locationProvider=%@ postTemplate=%@", self.distanceFilter, self.stationaryRadius, self.desiredAccuracy, self.activityType, self.activitiesInterval, self._debug, self._stopOnTerminate, self.url, self.syncThreshold, self.maxLocations, self.httpHeaders, self._useWebViewCookieStore, self._pauseLocationUpdates, self._saveBatteryOnBackground, self.locationProvider, self._template];
 
 }
 

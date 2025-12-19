@@ -1,6 +1,7 @@
 package com.marianhello.bgloc;
 
 import android.os.Build;
+import android.webkit.CookieManager;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -44,6 +45,80 @@ public class HttpPostService {
         return mHttpURLConnection;
     }
 
+    private static boolean hasHeaderIgnoreCase(Map headers, String headerName) {
+        if (headers == null || headerName == null) {
+            return false;
+        }
+
+        Iterator<Map.Entry<String, String>> it = headers.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, String> pair = it.next();
+            if (pair.getKey() != null && headerName.equalsIgnoreCase(pair.getKey())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void applyWebViewCookiesIfNeeded(HttpURLConnection conn, String url, Map headers, boolean useWebViewCookieStore) {
+        if (!useWebViewCookieStore || conn == null || url == null) {
+            return;
+        }
+
+        // Don't override explicit Cookie header from user-provided httpHeaders
+        if (hasHeaderIgnoreCase(headers, "Cookie")) {
+            return;
+        }
+
+        try {
+            CookieManager cookieManager = CookieManager.getInstance();
+            String cookieHeader = cookieManager.getCookie(url);
+            if (cookieHeader != null && !cookieHeader.isEmpty()) {
+                conn.setRequestProperty("Cookie", cookieHeader);
+            }
+        } catch (Throwable ignored) {
+            // Best-effort only: CookieManager may not be available / initialized in some environments
+        }
+    }
+
+    private static void persistResponseCookiesIfNeeded(HttpURLConnection conn, String url, boolean useWebViewCookieStore) {
+        if (!useWebViewCookieStore || conn == null || url == null) {
+            return;
+        }
+
+        try {
+            CookieManager cookieManager = CookieManager.getInstance();
+            Map<String, java.util.List<String>> headerFields = conn.getHeaderFields();
+            if (headerFields != null) {
+                for (Map.Entry<String, java.util.List<String>> entry : headerFields.entrySet()) {
+                    String headerKey = entry.getKey();
+                    if (headerKey == null) {
+                        continue;
+                    }
+                    if (!"Set-Cookie".equalsIgnoreCase(headerKey) && !"Set-Cookie2".equalsIgnoreCase(headerKey)) {
+                        continue;
+                    }
+                    java.util.List<String> values = entry.getValue();
+                    if (values == null) {
+                        continue;
+                    }
+                    for (String setCookieValue : values) {
+                        if (setCookieValue != null && !setCookieValue.isEmpty()) {
+                            cookieManager.setCookie(url, setCookieValue);
+                        }
+                    }
+                }
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                cookieManager.flush();
+            }
+        } catch (Throwable ignored) {
+            // Best-effort only
+        }
+    }
+
     public int postJSON(JSONObject json, Map headers) throws IOException {
         String jsonString = "null";
         if (json != null) {
@@ -63,6 +138,10 @@ public class HttpPostService {
     }
 
     public int postJSONString(String body, Map headers) throws IOException {
+        return postJSONString(body, headers, false);
+    }
+
+    public int postJSONString(String body, Map headers, boolean useWebViewCookieStore) throws IOException {
         if (headers == null) {
             headers = new HashMap();
         }
@@ -72,6 +151,9 @@ public class HttpPostService {
         conn.setFixedLengthStreamingMode(body.length());
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
+
+        applyWebViewCookiesIfNeeded(conn, mUrl, headers, useWebViewCookieStore);
+
         Iterator<Map.Entry<String, String>> it = headers.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, String> pair = it.next();
@@ -90,14 +172,24 @@ public class HttpPostService {
             }
         }
 
-        return conn.getResponseCode();
+        int responseCode = conn.getResponseCode();
+        persistResponseCookiesIfNeeded(conn, mUrl, useWebViewCookieStore);
+        return responseCode;
     }
 
     public int postJSONFile(File file, Map headers, UploadingProgressListener listener) throws IOException {
         return postJSONFile(new FileInputStream(file), headers, listener);
     }
 
+    public int postJSONFile(File file, Map headers, UploadingProgressListener listener, boolean useWebViewCookieStore) throws IOException {
+        return postJSONFile(new FileInputStream(file), headers, listener, useWebViewCookieStore);
+    }
+
     public int postJSONFile(InputStream stream, Map headers, UploadingProgressListener listener) throws IOException {
+        return postJSONFile(stream, headers, listener, false);
+    }
+
+    public int postJSONFile(InputStream stream, Map headers, UploadingProgressListener listener, boolean useWebViewCookieStore) throws IOException {
         if (headers == null) {
             headers = new HashMap();
         }
@@ -114,6 +206,9 @@ public class HttpPostService {
         }
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
+
+        applyWebViewCookiesIfNeeded(conn, mUrl, headers, useWebViewCookieStore);
+
         Iterator<Map.Entry<String, String>> it = headers.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, String> pair = it.next();
@@ -148,21 +243,43 @@ public class HttpPostService {
             }
         }
 
-        return conn.getResponseCode();
+        int responseCode = conn.getResponseCode();
+        persistResponseCookiesIfNeeded(conn, mUrl, useWebViewCookieStore);
+        return responseCode;
     }
 
     public static int postJSON(String url, JSONObject json, Map headers) throws IOException {
-        HttpPostService service = new HttpPostService(url);
-        return service.postJSON(json, headers);
+        return postJSON(url, json, headers, false);
     }
 
     public static int postJSON(String url, JSONArray json, Map headers) throws IOException {
-        HttpPostService service = new HttpPostService(url);
-        return service.postJSON(json, headers);
+        return postJSON(url, json, headers, false);
     }
 
     public static int postJSONFile(String url, File file, Map headers, UploadingProgressListener listener) throws IOException {
+        return postJSONFile(url, file, headers, listener, false);
+    }
+
+    public static int postJSON(String url, JSONObject json, Map headers, boolean useWebViewCookieStore) throws IOException {
         HttpPostService service = new HttpPostService(url);
-        return service.postJSONFile(file, headers, listener);
+        String jsonString = "null";
+        if (json != null) {
+            jsonString = json.toString();
+        }
+        return service.postJSONString(jsonString, headers, useWebViewCookieStore);
+    }
+
+    public static int postJSON(String url, JSONArray json, Map headers, boolean useWebViewCookieStore) throws IOException {
+        HttpPostService service = new HttpPostService(url);
+        String jsonString = "null";
+        if (json != null) {
+            jsonString = json.toString();
+        }
+        return service.postJSONString(jsonString, headers, useWebViewCookieStore);
+    }
+
+    public static int postJSONFile(String url, File file, Map headers, UploadingProgressListener listener, boolean useWebViewCookieStore) throws IOException {
+        HttpPostService service = new HttpPostService(url);
+        return service.postJSONFile(file, headers, listener, useWebViewCookieStore);
     }
 }

@@ -14,6 +14,7 @@
 #import "MAURLogging.h"
 #import "MAURPostLocationTask.h"
 #import "MAURSQLiteLocationDAO.h"
+#import "MAURCookieBridge.h"
 
 static NSString * const TAG = @"MAURPostLocationTask";
 
@@ -131,11 +132,18 @@ static MAURLocationTransform s_locationTransform = nil;
             [request addValue:value forHTTPHeaderField:key];
         }
     }
+
+    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:self.config.useWebViewCookieStore timeout:2.0];
+
     [request setHTTPBody:[jsonStr dataUsingEncoding:NSUTF8StringEncoding]];
     
     // Create url connection and fire request
     NSHTTPURLResponse* urlResponse = nil;
     [NSURLConnection sendSynchronousRequest:request returningResponse:&urlResponse error:outError];
+
+    if (urlResponse != nil) {
+        [MAURCookieBridge persistCookiesFromResponse:urlResponse forURL:request.URL useWebViewCookieStore:self.config.useWebViewCookieStore];
+    }
     
     NSInteger statusCode = urlResponse.statusCode;
     
@@ -181,7 +189,7 @@ static MAURLocationTransform s_locationTransform = nil;
 - (void) sync
 {
     if ([self.config hasValidSyncUrl]) {
-        [uploader sync:self.config.syncUrl withTemplate:self.config._template withHttpHeaders:self.config.httpHeaders];
+        [uploader sync:self.config.syncUrl withTemplate:self.config._template withHttpHeaders:self.config.httpHeaders useWebViewCookieStore:self.config.useWebViewCookieStore];
     }
 }
 

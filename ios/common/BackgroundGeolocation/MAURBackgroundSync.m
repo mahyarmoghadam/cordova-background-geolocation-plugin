@@ -9,11 +9,13 @@
 #import "MAURLogging.h"
 #import "MAURBackgroundSync.h"
 #import "MAURSQLiteLocationDAO.h"
+#import "MAURCookieBridge.h"
 
 @interface MAURBackgroundSync ()  <NSURLSessionDelegate, NSURLSessionTaskDelegate>
 {
     NSURLSession *urlSession;
     NSMutableArray *tasks;
+    NSMutableDictionary<NSNumber*, NSNumber*> *cookieBridgeFlags;
 }
 @end
 
@@ -26,6 +28,8 @@
     NSURLSessionConfiguration *conf = [NSURLSessionConfiguration backgroundSessionConfiguration:@"com.marianhello.session"];
     conf.allowsCellularAccess = YES;
     urlSession = [NSURLSession sessionWithConfiguration:conf delegate:self delegateQueue:[NSOperationQueue mainQueue]];
+
+    cookieBridgeFlags = [[NSMutableDictionary alloc] init];
     
     return self;
 }
@@ -55,6 +59,11 @@
 }
 
 - (void) sync:(NSString * _Nonnull)url withTemplate:(id)locationTemplate withHttpHeaders:(NSMutableDictionary * _Nullable)httpHeaders
+{
+    [self sync:url withTemplate:locationTemplate withHttpHeaders:httpHeaders useWebViewCookieStore:NO];
+}
+
+- (void) sync:(NSString * _Nonnull)url withTemplate:(id)locationTemplate withHttpHeaders:(NSMutableDictionary * _Nullable)httpHeaders useWebViewCookieStore:(BOOL)useWebViewCookieStore
 {
     MAURSQLiteLocationDAO* locationDAO = [MAURSQLiteLocationDAO sharedInstance];
     NSArray *locations = [locationDAO getLocationsForSync];
@@ -87,9 +96,13 @@
             [request addValue:value forHTTPHeaderField:key];
         }
     }
+
+    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:useWebViewCookieStore timeout:2.0];
+
     NSURLSessionTask *task = [urlSession uploadTaskWithRequest:request fromFile:jsonUrl];
     task.taskDescription = fileName;
     [tasks addObject:task];
+    cookieBridgeFlags[@(task.taskIdentifier)] = @(useWebViewCookieStore);
     DDLogInfo(@"Started upload for %@ as task %zu/%@/%@", jsonUrl.lastPathComponent, (unsigned long)task.taskIdentifier, task.taskDescription, task);
     [task resume];
     
@@ -135,6 +148,16 @@ NSString *stringFromFileSize(unsigned long long theSize)
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(nullable NSError *)error
 {
     NSInteger statusCode = [(NSHTTPURLResponse *)task.response statusCode];
+
+    // Best-effort cookie sync from response -> WebView store (only if enabled for this task)
+    NSNumber *useCookieBridge = cookieBridgeFlags[@(task.taskIdentifier)];
+    if (useCookieBridge != nil && [useCookieBridge boolValue]) {
+        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)task.response;
+        if (httpResponse != nil && task.originalRequest.URL != nil) {
+            [MAURCookieBridge persistCookiesFromResponse:httpResponse forURL:task.originalRequest.URL useWebViewCookieStore:YES];
+        }
+    }
+    [cookieBridgeFlags removeObjectForKey:@(task.taskIdentifier)];
     
     DDLogInfo(@"Finished uploading task %zu %@: %@ %@, HTTP %ld", (unsigned long)[task taskIdentifier], task.originalRequest.URL, error ?: @"Success", task.response, (long)statusCode);
     

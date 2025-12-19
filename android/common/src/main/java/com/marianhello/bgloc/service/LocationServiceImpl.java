@@ -633,7 +633,28 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
-        return super.registerReceiver(receiver, filter, null, mServiceHandler, RECEIVER_NOT_EXPORTED);
+        // Android 13+ requires specifying exported/not-exported flags for dynamic receivers.
+        // Use reflection to avoid a compile-time dependency on API 33.
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                java.lang.reflect.Field field = Context.class.getField("RECEIVER_NOT_EXPORTED");
+                int receiverNotExportedFlag = field.getInt(null);
+                java.lang.reflect.Method method = Context.class.getMethod(
+                        "registerReceiver",
+                        BroadcastReceiver.class,
+                        IntentFilter.class,
+                        String.class,
+                        Handler.class,
+                        int.class
+                );
+                Object result = method.invoke(this, receiver, filter, null, mServiceHandler, receiverNotExportedFlag);
+                return (Intent) result;
+            } catch (Throwable ignored) {
+                // Fall back to the pre-Android-13 overload.
+            }
+        }
+
+        return super.registerReceiver(receiver, filter, null, mServiceHandler);
     }
 
     @Override

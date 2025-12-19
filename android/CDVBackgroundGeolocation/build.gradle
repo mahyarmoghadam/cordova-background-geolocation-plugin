@@ -26,7 +26,11 @@ android {
 
 dependencies {
     testCompile testLibs.junit
-    testCompile testLibs.robolectric
+    // Robolectric pulls in BouncyCastle which old Jetifier (AGP 3.4.x) can fail to transform.
+    testCompile(testLibs.robolectric) {
+        exclude group: 'org.bouncycastle'
+    }
+    compile 'androidx.annotation:annotation:1.1.0'
     compile libs.slf4j
     compile project(':CordovaLib')
     compile fileTree(dir: 'libs', include: ['*.jar'])

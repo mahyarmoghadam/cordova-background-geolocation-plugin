@@ -126,7 +126,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements HttpPost
         httpHeaders.putAll(config.getHttpHeaders());
         httpHeaders.put("x-batch-id", String.valueOf(batchStartMillis));
 
-        if (uploadLocations(file, url, httpHeaders)) {
+        if (uploadLocations(file, url, httpHeaders, config.getUseWebViewCookieStore())) {
             logger.info("Batch sync successful");
             batchManager.setBatchCompleted(batchStartMillis);
             if (file.delete()) {
@@ -140,7 +140,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements HttpPost
         }
     }
 
-    private boolean uploadLocations(File file, String url, HashMap httpHeaders) {
+    private boolean uploadLocations(File file, String url, HashMap httpHeaders, boolean useWebViewCookieStore) {
         NotificationCompat.Builder builder = null;
 
         if (notificationsEnabled) {
@@ -153,7 +153,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements HttpPost
         }
 
         try {
-            int responseCode = HttpPostService.postJSONFile(url, file, httpHeaders, this);
+            int responseCode = HttpPostService.postJSONFile(url, file, httpHeaders, this, useWebViewCookieStore);
 
             // All 2xx statuses are okay
             boolean isStatusOkay = responseCode >= 200 && responseCode < 300;

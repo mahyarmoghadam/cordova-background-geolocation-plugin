@@ -30,6 +30,10 @@ import java.util.ArrayList;
 public class ActivityRecognitionLocationProvider extends AbstractLocationProvider implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
+    private static final int ANDROID_SDK_29 = 29;
+    private static final int ANDROID_SDK_31 = 31;
+    private static final int PENDING_INTENT_FLAG_MUTABLE = 0x02000000;
+
     private static final String TAG = ActivityRecognitionLocationProvider.class.getSimpleName();
     private static final String P_NAME = " com.marianhello.bgloc";
     private static final String DETECTED_ACTIVITY_UPDATE = P_NAME + ".DETECTED_ACTIVITY_UPDATE";
@@ -55,8 +59,8 @@ public class ActivityRecognitionLocationProvider extends AbstractLocationProvide
         Intent detectedActivitiesIntent = new Intent(mContext, DetectedActivitiesReceiver.class);
         detectedActivitiesIntent.setAction(DETECTED_ACTIVITY_UPDATE);
 
-        int updateCurrentFlag = android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+        int updateCurrentFlag = android.os.Build.VERSION.SDK_INT >= ANDROID_SDK_31
+                ? PendingIntent.FLAG_UPDATE_CURRENT | PENDING_INTENT_FLAG_MUTABLE
                     : PendingIntent.FLAG_UPDATE_CURRENT;
         detectedActivitiesPI = PendingIntent.getBroadcast(mContext, 9002, detectedActivitiesIntent, updateCurrentFlag);
         registerReceiver(detectedActivitiesReceiver, new IntentFilter(DETECTED_ACTIVITY_UPDATE));
@@ -151,7 +155,8 @@ public class ActivityRecognitionLocationProvider extends AbstractLocationProvide
     }
 
     private boolean activityRecognitionPermitted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
+        return Build.VERSION.SDK_INT < ANDROID_SDK_29
+                || ActivityCompat.checkSelfPermission(mContext, "android.permission.ACTIVITY_RECOGNITION") == PackageManager.PERMISSION_GRANTED;
     }
 
     private void attachRecorder() {

@@ -37,6 +37,9 @@ import static java.lang.Math.round;
 
 public class DistanceFilterLocationProvider extends AbstractLocationProvider implements LocationListener {
 
+    private static final int ANDROID_SDK_31 = 31;
+    private static final int PENDING_INTENT_FLAG_MUTABLE = 0x02000000;
+
     private static final String TAG = DistanceFilterLocationProvider.class.getSimpleName();
     private static final String P_NAME = "com.tenforwardconsulting.cordova.bgloc";
 
@@ -85,12 +88,12 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         locationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
         alarmManager = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
 
-        int zeroFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    ? 0 | PendingIntent.FLAG_MUTABLE
+        int zeroFlag = Build.VERSION.SDK_INT >= ANDROID_SDK_31
+                ? 0 | PENDING_INTENT_FLAG_MUTABLE
                     : 0;
 
-        int cancelCurrentFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE
+        int cancelCurrentFlag = Build.VERSION.SDK_INT >= ANDROID_SDK_31
+                ? PendingIntent.FLAG_CANCEL_CURRENT | PENDING_INTENT_FLAG_MUTABLE
                     : PendingIntent.FLAG_CANCEL_CURRENT;
 
         Intent stationaryAlarmIntent = new Intent(mContext, StationaryAlarmReceiver.class);
