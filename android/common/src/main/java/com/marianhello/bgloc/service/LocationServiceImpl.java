@@ -243,7 +243,27 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         }
 
         if (mPostLocationTask != null) {
-            mPostLocationTask.shutdown();
+            final PostLocationTask task = mPostLocationTask;
+            try {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            task.shutdown();
+                        } catch (Throwable t) {
+                            logger.warn("PostLocationTask shutdown failed", t);
+                        }
+                    }
+                }, "PostLocationTask.Shutdown").start();
+            } catch (Throwable t) {
+                // Fall back to best-effort shutdown without risking ANR.
+                logger.warn("Failed to start PostLocationTask shutdown thread", t);
+                try {
+                    task.shutdown(0);
+                } catch (Throwable ignored) {
+                    // noop
+                }
+            }
         }
 
 
