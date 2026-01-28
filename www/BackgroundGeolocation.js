@@ -57,7 +57,8 @@ var BackgroundGeolocation = {
     'foreground',
     'background',
     'abort_requested',
-    'http_authorization'
+    'http_authorization',
+    'reminder_notification_tap'
   ],
 
   DISTANCE_FILTER_PROVIDER: 0,
@@ -100,6 +101,12 @@ var BackgroundGeolocation = {
 
   stop: function () {
     return execWithPromise(null, null, 'stop');
+  },
+
+  snoozeReminder: function (success, failure) {
+    return execWithPromise(success,
+      failure,
+      'snoozeReminder');
   },
 
   switchMode: function (mode, success, failure) {

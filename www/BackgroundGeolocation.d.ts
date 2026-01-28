@@ -3,7 +3,7 @@
 // Definitions by: Mauron85 (@mauron85), Norbert Györög (@djereg)
 // Definitions: https://github.com/HaylLtd/cordova-background-geolocation-plugin/blob/master/www/BackgroundGeolocation.d.ts
 
-type Event = 'location' | 'stationary' | 'activity' | 'start' | 'stop' | 'error' | 'authorization' | 'foreground' | 'background' | 'abort_requested' | 'http_authorization';
+type Event = 'location' | 'stationary' | 'activity' | 'start' | 'stop' | 'error' | 'authorization' | 'foreground' | 'background' | 'abort_requested' | 'http_authorization' | 'reminder_notification_tap';
 type HeadlessTaskEventName = 'location' | 'stationary' | 'activity';
 type iOSActivityType = 'AutomotiveNavigation' | 'OtherNavigation' | 'Fitness' | 'Other';
 type NativeProvider = 'gps' | 'network' | 'passive' | 'fused';
@@ -21,6 +21,12 @@ export interface Unsubscribable {
 
 export interface Subscribable<T> {
   subscribe(callback: (value: T) => any): Unsubscribable;
+}
+
+export interface ReminderNotificationTap {
+  action: 'tap';
+  notificationId: number;
+  timestamp: number;
 }
 
 export interface ConfigureOptions {
@@ -178,6 +184,67 @@ export interface ConfigureOptions {
    * @default "Background tracking"
    */
   notificationTitle?: string;
+
+  /**
+   * Minutes after start to show a reminder notification that tracking is running.
+   * Integer minutes; 0 or unset disables the reminder. Title/text configurable via
+   * stillTrackingReminderTitle/Text.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderInterval?: number;
+
+  /**
+   * Optional reminder snooze interval in minutes. If unset, a dynamic default is used
+   * (one quarter of stillTrackingReminderInterval, rounded up). Integer minutes only.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderSnoozeInterval?: number;
+
+  /**
+   * Optional reminder notification title. If unset, a sensible default is used.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderTitle?: string;
+
+  /**
+   * Optional reminder notification text/body. If unset, a sensible default is used.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderText?: string;
+
+  /**
+   * Optional label for the reminder Stop action button. If unset, a default is used.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderStopLabel?: string;
+
+  /**
+   * Optional label for the reminder Snooze action button. If unset, a default is used.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderSnoozeLabel?: string;
+
+  /**
+   * Optional label for the reminder Mute action button. If unset, a default is used.
+   *
+   * Platform: all
+   */
+  stillTrackingReminderMuteLabel?: string;
+
+  /**
+   * Use exact alarms for the still-tracking reminder on Android (API 31+ requires
+   * SCHEDULE_EXACT_ALARM). Default is false which schedules inexact alarms to avoid
+   * the permission.
+   *
+   * Platform: Android
+   */
+  stillTrackingReminderExactAlarm?: boolean;
 
   /**
    * Custom notification text in the drawer.
@@ -530,6 +597,18 @@ export interface BackgroundGeolocationPlugin {
    * Platform: iOS, Android
    */
   stop(): Promise<void>;
+
+  /**
+   * Snooze the still-tracking reminder if tracking is active and no reminder is already scheduled.
+   * Platform: iOS, Android
+   *
+   * @param success
+   * @param fail
+   */
+  snoozeReminder(
+    success?: () => void,
+    fail?: (error: BackgroundGeolocationError) => void
+  ): Promise<void>;
 
   /**
    * One time location check to get current location of the device.
@@ -888,6 +967,20 @@ export interface BackgroundGeolocationPlugin {
     eventName: 'background',
     callback?: () => void
   ): Subscribable<void>;
+
+  /**
+   * Register reminder notification tap listener.
+   *
+   * Triggered when user opens the app by tapping the reminder notification body
+   * (not one of the action buttons).
+   *
+   * @param eventName
+   * @param callback
+   */
+  on(
+    eventName: 'reminder_notification_tap',
+    callback?: (event: ReminderNotificationTap) => void
+  ): Subscribable<ReminderNotificationTap>;
 
   /**
    * Register abort_requested event listener.

@@ -29,16 +29,16 @@ import java.lang.annotation.RetentionPolicy;
 // CommandId enumeration
 // more info - http://blog.shamanland.com/2016/02/int-string-enum.html
 @IntDef({
-        CommandId.INVALID,
-        CommandId.START,
-        CommandId.START_FOREGROUND_SERVICE,
-        CommandId.STOP,
-        CommandId.STOP_FOREGROUND,
-        CommandId.START_FOREGROUND,
-        CommandId.CONFIGURE,
-        CommandId.REGISTER_HEADLESS_TASK,
-        CommandId.START_HEADLESS_TASK,
-        CommandId.STOP_HEADLESS_TASK
+    CommandId.INVALID,
+    CommandId.START,
+    CommandId.START_FOREGROUND_SERVICE,
+    CommandId.STOP,
+    CommandId.STOP_FOREGROUND,
+    CommandId.START_FOREGROUND,
+    CommandId.CONFIGURE,
+    CommandId.REGISTER_HEADLESS_TASK,
+    CommandId.START_HEADLESS_TASK,
+    CommandId.STOP_HEADLESS_TASK
 })
 @Retention(RetentionPolicy.SOURCE)
 @interface CommandId {

@@ -63,6 +63,30 @@ public class ConfigMapper {
         if (jObject.has("notificationIconColor")) {
             config.setNotificationIconColor(!jObject.isNull("notificationIconColor") ? jObject.getString("notificationIconColor") : Config.NullString);
         }
+        if (jObject.has("stillTrackingReminderInterval")) {
+            config.setStillTrackingReminderIntervalMinutes(jObject.isNull("stillTrackingReminderInterval") ? null : jObject.getInt("stillTrackingReminderInterval"));
+        }
+        if (jObject.has("stillTrackingReminderSnoozeInterval")) {
+            config.setStillTrackingReminderSnoozeIntervalMinutes(jObject.isNull("stillTrackingReminderSnoozeInterval") ? null : jObject.getInt("stillTrackingReminderSnoozeInterval"));
+        }
+        if (jObject.has("stillTrackingReminderTitle")) {
+            config.setStillTrackingReminderTitle(!jObject.isNull("stillTrackingReminderTitle") ? jObject.getString("stillTrackingReminderTitle") : Config.NullString);
+        }
+        if (jObject.has("stillTrackingReminderText")) {
+            config.setStillTrackingReminderText(!jObject.isNull("stillTrackingReminderText") ? jObject.getString("stillTrackingReminderText") : Config.NullString);
+        }
+        if (jObject.has("stillTrackingReminderStopLabel")) {
+            config.setStillTrackingReminderStopLabel(!jObject.isNull("stillTrackingReminderStopLabel") ? jObject.getString("stillTrackingReminderStopLabel") : Config.NullString);
+        }
+        if (jObject.has("stillTrackingReminderSnoozeLabel")) {
+            config.setStillTrackingReminderSnoozeLabel(!jObject.isNull("stillTrackingReminderSnoozeLabel") ? jObject.getString("stillTrackingReminderSnoozeLabel") : Config.NullString);
+        }
+        if (jObject.has("stillTrackingReminderMuteLabel")) {
+            config.setStillTrackingReminderMuteLabel(!jObject.isNull("stillTrackingReminderMuteLabel") ? jObject.getString("stillTrackingReminderMuteLabel") : Config.NullString);
+        }
+        if (jObject.has("stillTrackingReminderExactAlarm")) {
+            config.setStillTrackingReminderExactAlarm(jObject.getBoolean("stillTrackingReminderExactAlarm"));
+        }
         if (jObject.has("notificationIconLarge")) {
             config.setLargeNotificationIcon(!jObject.isNull("notificationIconLarge") ? jObject.getString("notificationIconLarge") : Config.NullString);
         }
@@ -117,6 +141,14 @@ public class ConfigMapper {
         json.put("notificationIconLarge", config.getLargeNotificationIcon() != Config.NullString ? config.getLargeNotificationIcon() : JSONObject.NULL);
         json.put("notificationIconSmall", config.getSmallNotificationIcon() != Config.NullString ? config.getSmallNotificationIcon() : JSONObject.NULL);
         json.put("notificationIconColor", config.getNotificationIconColor() != Config.NullString ? config.getNotificationIconColor() : JSONObject.NULL);
+        json.put("stillTrackingReminderInterval", config.hasStillTrackingReminderIntervalMinutes() ? config.getStillTrackingReminderIntervalMinutes() : JSONObject.NULL);
+        json.put("stillTrackingReminderSnoozeInterval", config.hasStillTrackingReminderSnoozeIntervalMinutes() ? config.getStillTrackingReminderSnoozeIntervalMinutes() : JSONObject.NULL);
+        json.put("stillTrackingReminderTitle", config.hasStillTrackingReminderTitle() ? config.getStillTrackingReminderTitle() : JSONObject.NULL);
+        json.put("stillTrackingReminderText", config.hasStillTrackingReminderText() ? config.getStillTrackingReminderText() : JSONObject.NULL);
+        json.put("stillTrackingReminderStopLabel", config.hasStillTrackingReminderStopLabel() ? config.getStillTrackingReminderStopLabel() : JSONObject.NULL);
+        json.put("stillTrackingReminderSnoozeLabel", config.hasStillTrackingReminderSnoozeLabel() ? config.getStillTrackingReminderSnoozeLabel() : JSONObject.NULL);
+        json.put("stillTrackingReminderMuteLabel", config.hasStillTrackingReminderMuteLabel() ? config.getStillTrackingReminderMuteLabel() : JSONObject.NULL);
+        json.put("stillTrackingReminderExactAlarm", config.hasStillTrackingReminderExactAlarm() ? config.getStillTrackingReminderExactAlarm() : false);
         json.put("stopOnTerminate", config.getStopOnTerminate());
         json.put("startOnBoot", config.getStartOnBoot());
         json.put("startForeground", config.getStartForeground());

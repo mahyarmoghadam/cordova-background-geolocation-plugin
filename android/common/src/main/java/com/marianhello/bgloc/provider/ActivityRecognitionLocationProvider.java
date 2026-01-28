@@ -32,7 +32,6 @@ public class ActivityRecognitionLocationProvider extends AbstractLocationProvide
 
     private static final int ANDROID_SDK_29 = 29;
     private static final int ANDROID_SDK_31 = 31;
-    private static final int PENDING_INTENT_FLAG_MUTABLE = 0x02000000;
 
     private static final String TAG = ActivityRecognitionLocationProvider.class.getSimpleName();
     private static final String P_NAME = " com.marianhello.bgloc";
@@ -60,7 +59,7 @@ public class ActivityRecognitionLocationProvider extends AbstractLocationProvide
         detectedActivitiesIntent.setAction(DETECTED_ACTIVITY_UPDATE);
 
         int updateCurrentFlag = android.os.Build.VERSION.SDK_INT >= ANDROID_SDK_31
-                ? PendingIntent.FLAG_UPDATE_CURRENT | PENDING_INTENT_FLAG_MUTABLE
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
                     : PendingIntent.FLAG_UPDATE_CURRENT;
         detectedActivitiesPI = PendingIntent.getBroadcast(mContext, 9002, detectedActivitiesIntent, updateCurrentFlag);
         registerReceiver(detectedActivitiesReceiver, new IntentFilter(DETECTED_ACTIVITY_UPDATE));

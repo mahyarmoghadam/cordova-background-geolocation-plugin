@@ -12,7 +12,7 @@ import android.webkit.WebView;
 import com.evgenii.jsevaluator.interfaces.CallJavaResultInterface;
 import com.evgenii.jsevaluator.interfaces.WebViewWrapperInterface;
 
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
 public class WebViewWrapper implements WebViewWrapperInterface {
 	protected WebView mWebView;
 

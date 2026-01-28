@@ -99,6 +99,8 @@
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceIntentBuilder.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationService.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceProxy.java" target-dir="src/com/marianhello/bgloc/service" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/reminder/ReminderHelper.java" target-dir="src/com/marianhello/bgloc/reminder" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/reminder/ReminderReceiver.java" target-dir="src/com/marianhello/bgloc/reminder" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/AccountHelper.java" target-dir="src/com/marianhello/bgloc/sync" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/Authenticator.java" target-dir="src/com/marianhello/bgloc/sync" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/AuthenticatorService.java" target-dir="src/com/marianhello/bgloc/sync" />
@@ -160,6 +162,9 @@
                 android:foregroundServiceType="location"
                 />
             <receiver
+                android:name="com.marianhello.bgloc.reminder.ReminderReceiver"
+                android:exported="false" />
+            <receiver
                   android:name="com.marianhello.bgloc.BootCompletedReceiver"
                   android:enabled="true"
                   android:exported="true">
@@ -184,6 +189,7 @@
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.WAKE_LOCK" />
             <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+            <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
             <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
             <uses-permission android:name="android.hardware.location" />
@@ -303,6 +309,8 @@
         <source-file src="ios/common/BackgroundGeolocation/MAURBackgroundTaskManager.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURConfig.h" />
         <source-file src="ios/common/BackgroundGeolocation/MAURConfig.m" />
+        <header-file src="ios/common/BackgroundGeolocation/MAURReminderHelper.h" />
+        <source-file src="ios/common/BackgroundGeolocation/MAURReminderHelper.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURCookieBridge.h" />
         <source-file src="ios/common/BackgroundGeolocation/MAURCookieBridge.m" />
         <header-file src="ios/common/BackgroundGeolocation/MAURConfigurationContract.h" />

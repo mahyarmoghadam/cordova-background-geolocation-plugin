@@ -17,6 +17,7 @@ import com.marianhello.logging.LoggerManager;
 
 public class NotificationHelper {
     public static final String SERVICE_CHANNEL_ID = "bglocservice";
+    public static final String REMINDER_CHANNEL_ID = "bglocreminder";
     // https://github.com/nishkarsh/android-permissions/blob/master/src/main/java/com/intentfilter/androidpermissions/services/NotificationService.java#L15
     public static final String ANDROID_PERMISSIONS_CHANNEL_ID = "android-permissions";
 
@@ -80,9 +81,8 @@ public class NotificationHelper {
                 // NOTICE: testing apps might not have registered launch intent
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 final int ANDROID_SDK_31 = 31;
-                final int PENDING_INTENT_FLAG_IMMUTABLE = 0x04000000;
                 int flags = Build.VERSION.SDK_INT >= ANDROID_SDK_31
-                    ? PendingIntent.FLAG_CANCEL_CURRENT | PENDING_INTENT_FLAG_IMMUTABLE
+                    ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE
                         : PendingIntent.FLAG_CANCEL_CURRENT;
                 PendingIntent contentIntent = PendingIntent.getActivity(appContext, 0, launchIntent, flags);
                 builder.setContentIntent(contentIntent);
@@ -102,6 +102,7 @@ public class NotificationHelper {
             // the NotificationChannel class is new and not in the support library
             android.app.NotificationManager notificationManager = (android.app.NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             notificationManager.createNotificationChannel(createServiceChannel(appName));
+            notificationManager.createNotificationChannel(createReminderChannel(appName));
             notificationManager.createNotificationChannel(createSyncChannel());
             notificationManager.createNotificationChannel(createAndroidPermissionsChannel(appName));
         }
@@ -114,6 +115,14 @@ public class NotificationHelper {
             // the NotificationChannel class is new and not in the support library
             android.app.NotificationManager notificationManager = (android.app.NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             notificationManager.createNotificationChannel(createServiceChannel(appName));
+        }
+    }
+
+    public static void registerReminderChannel(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String appName = ResourceResolver.newInstance(context).getString(("app_name"));
+            android.app.NotificationManager notificationManager = (android.app.NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.createNotificationChannel(createReminderChannel(appName));
         }
     }
 
@@ -130,6 +139,13 @@ public class NotificationHelper {
     public static NotificationChannel createServiceChannel(CharSequence name) {
         NotificationChannel channel = new NotificationChannel(SERVICE_CHANNEL_ID, name, android.app.NotificationManager.IMPORTANCE_LOW);
         channel.enableVibration(false);
+        return channel;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static NotificationChannel createReminderChannel(CharSequence appName) {
+        NotificationChannel channel = new NotificationChannel(REMINDER_CHANNEL_ID, appName + " tracking reminder", NotificationManager.IMPORTANCE_DEFAULT);
+        channel.enableVibration(true);
         return channel;
     }
 

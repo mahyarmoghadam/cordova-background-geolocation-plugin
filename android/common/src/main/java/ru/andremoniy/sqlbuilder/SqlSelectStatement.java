@@ -22,6 +22,7 @@ import ru.andremoniy.utils.TextUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /*!
  @class					SqlSelectStatement
@@ -222,7 +223,7 @@ public class SqlSelectStatement implements SqlStatement {
                     SqlExpression.prepareConnector(connector),
                     String.format("%s %s %s",
                             SqlExpression.prepareIdentifier(column1),
-                            operator != null ? operator.toUpperCase() : "",
+                            operator != null ? operator.toUpperCase(Locale.US) : "",
                             SqlExpression.prepareIdentifier(column2)
                     )
             });
@@ -340,7 +341,7 @@ public class SqlSelectStatement implements SqlStatement {
         if (operator == null) {
             return;
         }
-        operator = operator.toUpperCase();
+        operator = operator.toUpperCase(Locale.US);
         if (SqlExpression.SqlOperatorBetween.equals(operator) || SqlExpression.SqlOperatorNotBetween.equals(operator)) {
             if (!(value != null && value.getClass().isArray())) {
                 throw new IllegalArgumentException("Operator requires the value to be declared as an array");

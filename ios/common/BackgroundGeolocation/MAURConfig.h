@@ -36,6 +36,13 @@ enum {
 @property NSNumber *_pauseLocationUpdates;
 @property NSNumber *locationProvider;
 @property NSObject *_template;
+@property NSNumber *stillTrackingReminderIntervalMinutes;
+@property NSNumber *stillTrackingReminderSnoozeIntervalMinutes;
+@property NSString *stillTrackingReminderTitle;
+@property NSString *stillTrackingReminderText;
+@property NSString *stillTrackingReminderStopLabel;
+@property NSString *stillTrackingReminderSnoozeLabel;
+@property NSString *stillTrackingReminderMuteLabel;
 
 - (instancetype) initWithDefaults;
 + (instancetype) fromDictionary:(NSDictionary*)config;
@@ -61,6 +68,13 @@ enum {
 - (BOOL) hasLocationProvider;
 - (BOOL) hasTemplate;
 - (BOOL) hasActivitiesInterval;
+- (BOOL) hasStillTrackingReminderIntervalMinutes;
+- (BOOL) hasStillTrackingReminderSnoozeIntervalMinutes;
+- (BOOL) hasStillTrackingReminderTitle;
+- (BOOL) hasStillTrackingReminderText;
+- (BOOL) hasStillTrackingReminderStopLabel;
+- (BOOL) hasStillTrackingReminderSnoozeLabel;
+- (BOOL) hasStillTrackingReminderMuteLabel;
 - (BOOL) isDebugging;
 - (BOOL) stopOnTerminate;
 - (BOOL) saveBatteryOnBackground;

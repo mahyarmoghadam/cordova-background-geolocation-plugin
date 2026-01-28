@@ -12,7 +12,7 @@
 
 @implementation MAURConfig 
 
-@synthesize stationaryRadius, distanceFilter, desiredAccuracy, _debug, activityType, activitiesInterval, _stopOnTerminate, url, syncUrl, syncThreshold, httpHeaders, _useWebViewCookieStore, _saveBatteryOnBackground, maxLocations, _pauseLocationUpdates, locationProvider, _template;
+@synthesize stationaryRadius, distanceFilter, desiredAccuracy, _debug, activityType, activitiesInterval, _stopOnTerminate, url, syncUrl, syncThreshold, httpHeaders, _useWebViewCookieStore, _saveBatteryOnBackground, maxLocations, _pauseLocationUpdates, locationProvider, _template, stillTrackingReminderIntervalMinutes, stillTrackingReminderSnoozeIntervalMinutes, stillTrackingReminderTitle, stillTrackingReminderText, stillTrackingReminderStopLabel, stillTrackingReminderSnoozeLabel, stillTrackingReminderMuteLabel;
 
 -(instancetype) initWithDefaults {
     self = [super init];
@@ -34,6 +34,13 @@
     _pauseLocationUpdates = [NSNumber numberWithBool:NO];
     locationProvider = [NSNumber numberWithInt:DISTANCE_FILTER_PROVIDER];
     _useWebViewCookieStore = nil;
+    stillTrackingReminderIntervalMinutes = nil;
+    stillTrackingReminderSnoozeIntervalMinutes = nil;
+    stillTrackingReminderTitle = nil;
+    stillTrackingReminderText = nil;
+    stillTrackingReminderStopLabel = nil;
+    stillTrackingReminderSnoozeLabel = nil;
+    stillTrackingReminderMuteLabel = nil;
 //    template =
     
     return self;
@@ -93,6 +100,27 @@
     }
     if (config[@"postTemplate"] != nil) {
         instance._template = config[@"postTemplate"];
+    }
+    if (isNotNull(config[@"stillTrackingReminderInterval"])) {
+        instance.stillTrackingReminderIntervalMinutes = config[@"stillTrackingReminderInterval"];
+    }
+    if (isNotNull(config[@"stillTrackingReminderSnoozeInterval"])) {
+        instance.stillTrackingReminderSnoozeIntervalMinutes = config[@"stillTrackingReminderSnoozeInterval"];
+    }
+    if (config[@"stillTrackingReminderTitle"] != nil) {
+        instance.stillTrackingReminderTitle = config[@"stillTrackingReminderTitle"];
+    }
+    if (config[@"stillTrackingReminderText"] != nil) {
+        instance.stillTrackingReminderText = config[@"stillTrackingReminderText"];
+    }
+    if (config[@"stillTrackingReminderStopLabel"] != nil) {
+        instance.stillTrackingReminderStopLabel = config[@"stillTrackingReminderStopLabel"];
+    }
+    if (config[@"stillTrackingReminderSnoozeLabel"] != nil) {
+        instance.stillTrackingReminderSnoozeLabel = config[@"stillTrackingReminderSnoozeLabel"];
+    }
+    if (config[@"stillTrackingReminderMuteLabel"] != nil) {
+        instance.stillTrackingReminderMuteLabel = config[@"stillTrackingReminderMuteLabel"];
     }
 
     return instance;
@@ -161,6 +189,27 @@
     if ([newConfig hasTemplate]) {
         merger._template = newConfig._template;
     }
+    if ([newConfig hasStillTrackingReminderIntervalMinutes]) {
+        merger.stillTrackingReminderIntervalMinutes = newConfig.stillTrackingReminderIntervalMinutes;
+    }
+    if ([newConfig hasStillTrackingReminderSnoozeIntervalMinutes]) {
+        merger.stillTrackingReminderSnoozeIntervalMinutes = newConfig.stillTrackingReminderSnoozeIntervalMinutes;
+    }
+    if ([newConfig hasStillTrackingReminderTitle]) {
+        merger.stillTrackingReminderTitle = newConfig.stillTrackingReminderTitle;
+    }
+    if ([newConfig hasStillTrackingReminderText]) {
+        merger.stillTrackingReminderText = newConfig.stillTrackingReminderText;
+    }
+    if ([newConfig hasStillTrackingReminderStopLabel]) {
+        merger.stillTrackingReminderStopLabel = newConfig.stillTrackingReminderStopLabel;
+    }
+    if ([newConfig hasStillTrackingReminderSnoozeLabel]) {
+        merger.stillTrackingReminderSnoozeLabel = newConfig.stillTrackingReminderSnoozeLabel;
+    }
+    if ([newConfig hasStillTrackingReminderMuteLabel]) {
+        merger.stillTrackingReminderMuteLabel = newConfig.stillTrackingReminderMuteLabel;
+    }
 
     return merger;
 }
@@ -186,6 +235,13 @@
         copy._pauseLocationUpdates = _pauseLocationUpdates;
         copy.locationProvider = locationProvider;
         copy._template = _template;
+        copy.stillTrackingReminderIntervalMinutes = stillTrackingReminderIntervalMinutes;
+        copy.stillTrackingReminderSnoozeIntervalMinutes = stillTrackingReminderSnoozeIntervalMinutes;
+        copy.stillTrackingReminderTitle = stillTrackingReminderTitle;
+        copy.stillTrackingReminderText = stillTrackingReminderText;
+        copy.stillTrackingReminderStopLabel = stillTrackingReminderStopLabel;
+        copy.stillTrackingReminderSnoozeLabel = stillTrackingReminderSnoozeLabel;
+        copy.stillTrackingReminderMuteLabel = stillTrackingReminderMuteLabel;
     }
     
     return copy;
@@ -336,6 +392,42 @@
 {
     return locationProvider != nil;
 }
+
+- (BOOL) hasStillTrackingReminderIntervalMinutes
+{
+    return stillTrackingReminderIntervalMinutes != nil;
+}
+
+- (BOOL) hasStillTrackingReminderSnoozeIntervalMinutes
+{
+    return stillTrackingReminderSnoozeIntervalMinutes != nil;
+}
+
+- (BOOL) hasStillTrackingReminderTitle
+{
+    return stillTrackingReminderTitle != nil;
+}
+
+- (BOOL) hasStillTrackingReminderText
+{
+    return stillTrackingReminderText != nil;
+}
+
+- (BOOL) hasStillTrackingReminderStopLabel
+{
+    return stillTrackingReminderStopLabel != nil;
+}
+
+- (BOOL) hasStillTrackingReminderSnoozeLabel
+{
+    return stillTrackingReminderSnoozeLabel != nil;
+}
+
+- (BOOL) hasStillTrackingReminderMuteLabel
+{
+    return stillTrackingReminderMuteLabel != nil;
+}
+
 
 - (BOOL) hasTemplate
 {
@@ -490,6 +582,13 @@
     if ([self hasMaxLocations]) [dict setObject:self.maxLocations forKey:@"maxLocations"];
     if ([self hasPauseLocationUpdates]) [dict setObject:self._pauseLocationUpdates forKey:@"pauseLocationUpdates"];
     if ([self hasLocationProvider]) [dict setObject:self.locationProvider forKey:@"locationProvider"];
+    if ([self hasStillTrackingReminderIntervalMinutes]) [dict setObject:self.stillTrackingReminderIntervalMinutes forKey:@"stillTrackingReminderInterval"];
+    if ([self hasStillTrackingReminderSnoozeIntervalMinutes]) [dict setObject:self.stillTrackingReminderSnoozeIntervalMinutes forKey:@"stillTrackingReminderSnoozeInterval"];
+    if ([self hasStillTrackingReminderTitle]) [dict setObject:self.stillTrackingReminderTitle forKey:@"stillTrackingReminderTitle"];
+    if ([self hasStillTrackingReminderText]) [dict setObject:self.stillTrackingReminderText forKey:@"stillTrackingReminderText"];
+    if ([self hasStillTrackingReminderStopLabel]) [dict setObject:self.stillTrackingReminderStopLabel forKey:@"stillTrackingReminderStopLabel"];
+    if ([self hasStillTrackingReminderSnoozeLabel]) [dict setObject:self.stillTrackingReminderSnoozeLabel forKey:@"stillTrackingReminderSnoozeLabel"];
+    if ([self hasStillTrackingReminderMuteLabel]) [dict setObject:self.stillTrackingReminderMuteLabel forKey:@"stillTrackingReminderMuteLabel"];
     [dict setObject:self._template forKey:@"postTemplate"];
 
     return dict;
@@ -497,7 +596,7 @@
 
 - (NSString *) description
 {
-    return [NSString stringWithFormat:@"Config: distanceFilter=%@ stationaryRadius=%@ desiredAccuracy=%@ activityType=%@ activitiesInterval=%@ isDebugging=%@ stopOnTerminate=%@ url=%@ syncThreshold=%@ maxLocations=%@ httpHeaders=%@ useWebViewCookieStore=%@ pauseLocationUpdates=%@ saveBatteryOnBackground=%@ locationProvider=%@ postTemplate=%@", self.distanceFilter, self.stationaryRadius, self.desiredAccuracy, self.activityType, self.activitiesInterval, self._debug, self._stopOnTerminate, self.url, self.syncThreshold, self.maxLocations, self.httpHeaders, self._useWebViewCookieStore, self._pauseLocationUpdates, self._saveBatteryOnBackground, self.locationProvider, self._template];
+    return [NSString stringWithFormat:@"Config: distanceFilter=%@ stationaryRadius=%@ desiredAccuracy=%@ activityType=%@ activitiesInterval=%@ isDebugging=%@ stopOnTerminate=%@ url=%@ syncThreshold=%@ maxLocations=%@ httpHeaders=%@ useWebViewCookieStore=%@ pauseLocationUpdates=%@ saveBatteryOnBackground=%@ locationProvider=%@ postTemplate=%@ reminderIntervalMinutes=%@ reminderSnoozeIntervalMinutes=%@ reminderTitle=%@ reminderText=%@ reminderStopLabel=%@ reminderSnoozeLabel=%@ reminderMuteLabel=%@", self.distanceFilter, self.stationaryRadius, self.desiredAccuracy, self.activityType, self.activitiesInterval, self._debug, self._stopOnTerminate, self.url, self.syncThreshold, self.maxLocations, self.httpHeaders, self._useWebViewCookieStore, self._pauseLocationUpdates, self._saveBatteryOnBackground, self.locationProvider, self._template, self.stillTrackingReminderIntervalMinutes, self.stillTrackingReminderSnoozeIntervalMinutes, self.stillTrackingReminderTitle, self.stillTrackingReminderText, self.stillTrackingReminderStopLabel, self.stillTrackingReminderSnoozeLabel, self.stillTrackingReminderMuteLabel];
 
 }
 

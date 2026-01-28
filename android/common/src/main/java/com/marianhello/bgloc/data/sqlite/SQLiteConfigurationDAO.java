@@ -51,6 +51,13 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
       ConfigurationEntry.COLUMN_NAME_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_INTERVAL_MINUTES,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_MINUTES,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_TITLE,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_TEXT,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_STOP_LABEL,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_LABEL,
+      ConfigurationEntry.COLUMN_NAME_REMINDER_MUTE_LABEL,
       ConfigurationEntry.COLUMN_NAME_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD,
@@ -118,6 +125,34 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     config.setInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_INTERVAL)));
     config.setFastestInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL)));
     config.setActivitiesInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL)));
+    int reminderIntervalIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_INTERVAL_MINUTES);
+    if (reminderIntervalIdx > -1 && !c.isNull(reminderIntervalIdx)) {
+      config.setStillTrackingReminderIntervalMinutes(c.getInt(reminderIntervalIdx));
+    }
+    int reminderSnoozeIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_MINUTES);
+    if (reminderSnoozeIdx > -1 && !c.isNull(reminderSnoozeIdx)) {
+      config.setStillTrackingReminderSnoozeIntervalMinutes(c.getInt(reminderSnoozeIdx));
+    }
+    int reminderTitleIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_TITLE);
+    if (reminderTitleIdx > -1 && !c.isNull(reminderTitleIdx)) {
+      config.setStillTrackingReminderTitle(c.getString(reminderTitleIdx));
+    }
+    int reminderTextIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_TEXT);
+    if (reminderTextIdx > -1 && !c.isNull(reminderTextIdx)) {
+      config.setStillTrackingReminderText(c.getString(reminderTextIdx));
+    }
+    int reminderStopLabelIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_STOP_LABEL);
+    if (reminderStopLabelIdx > -1 && !c.isNull(reminderStopLabelIdx)) {
+      config.setStillTrackingReminderStopLabel(c.getString(reminderStopLabelIdx));
+    }
+    int reminderSnoozeLabelIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_LABEL);
+    if (reminderSnoozeLabelIdx > -1 && !c.isNull(reminderSnoozeLabelIdx)) {
+      config.setStillTrackingReminderSnoozeLabel(c.getString(reminderSnoozeLabelIdx));
+    }
+    int reminderMuteLabelIdx = c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_REMINDER_MUTE_LABEL);
+    if (reminderMuteLabelIdx > -1 && !c.isNull(reminderMuteLabelIdx)) {
+      config.setStillTrackingReminderMuteLabel(c.getString(reminderMuteLabelIdx));
+    }
     config.setUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_URL)));
     config.setSyncUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_URL)));
     config.setSyncThreshold(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD)));
@@ -150,6 +185,13 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     values.put(ConfigurationEntry.COLUMN_NAME_INTERVAL, config.getInterval());
     values.put(ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL, config.getFastestInterval());
     values.put(ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL, config.getActivitiesInterval());
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_INTERVAL_MINUTES, config.hasStillTrackingReminderIntervalMinutes() ? config.getStillTrackingReminderIntervalMinutes() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_MINUTES, config.hasStillTrackingReminderSnoozeIntervalMinutes() ? config.getStillTrackingReminderSnoozeIntervalMinutes() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_TITLE, config.hasStillTrackingReminderTitle() && config.getStillTrackingReminderTitle() != Config.NullString ? config.getStillTrackingReminderTitle() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_TEXT, config.hasStillTrackingReminderText() && config.getStillTrackingReminderText() != Config.NullString ? config.getStillTrackingReminderText() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_STOP_LABEL, config.hasStillTrackingReminderStopLabel() && config.getStillTrackingReminderStopLabel() != Config.NullString ? config.getStillTrackingReminderStopLabel() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_LABEL, config.hasStillTrackingReminderSnoozeLabel() && config.getStillTrackingReminderSnoozeLabel() != Config.NullString ? config.getStillTrackingReminderSnoozeLabel() : null);
+    values.put(ConfigurationEntry.COLUMN_NAME_REMINDER_MUTE_LABEL, config.hasStillTrackingReminderMuteLabel() && config.getStillTrackingReminderMuteLabel() != Config.NullString ? config.getStillTrackingReminderMuteLabel() : null);
     values.put(ConfigurationEntry.COLUMN_NAME_URL, config.getUrl());
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_URL, config.getSyncUrl());
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD, config.getSyncThreshold());

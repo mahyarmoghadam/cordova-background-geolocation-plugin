@@ -13,6 +13,8 @@
 #import "MAURConfig.h"
 #import "MAURBackgroundGeolocationFacade.h"
 #import "MAURBackgroundTaskManager.h"
+#import "MAURReminderHelper.h"
+#import "MAURSQLiteConfigurationDAO.h"
 
 static NSString * const TAG = @"CDVBackgroundGeolocation";
 
@@ -20,6 +22,10 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     NSString *callbackId;
     MAURConfig *config;
     MAURBackgroundGeolocationFacade* facade;
+    MAURReminderHelper *reminderHelper;
+
+    BOOL pendingReminderNotificationTap;
+    NSDictionary *pendingReminderNotificationTapPayload;
 
     API_AVAILABLE(ios(10.0))
     __weak id<UNUserNotificationCenterDelegate> prevNotificationDelegate;
@@ -30,6 +36,7 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 
     facade = [[MAURBackgroundGeolocationFacade alloc] init];
     facade.delegate = self;
+    reminderHelper = [MAURReminderHelper sharedInstance];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onAppPause:) name:UIApplicationDidEnterBackgroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onAppResume:) name:UIApplicationWillEnterForegroundNotification object:nil];
@@ -51,9 +58,12 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 
         NSError *error = nil;
         CDVPluginResult* result = nil;
-        if ([facade configure:config error:&error]) {
+        BOOL configured = [facade configure:config error:&error];
+        if (configured) {
+            [self rescheduleReminderIfTracking];
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         } else {
+            [reminderHelper cancelReminder];
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self errorToDictionary:error]];
         }
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
@@ -70,6 +80,11 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     NSLog(@"%@ #%@", TAG, @"start");
     [self.commandDelegate runInBackground:^{
         NSError *error = nil;
+        MAURConfig *startConfig = [self currentConfigInstance];
+        if (startConfig == nil) {
+            startConfig = [[MAURConfig alloc] initWithDefaults];
+        }
+        config = startConfig;
 
         [facade start:&error];
         if (error == nil) {
@@ -78,9 +93,12 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
             [self sendError:error];
         }
         CDVPluginResult* result = nil;
-        if ([facade configure:config error:&error]) {
+        BOOL configured = [facade configure:config error:&error];
+        if (configured) {
+            [self rescheduleReminderIfTracking];
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         } else {
+            [reminderHelper cancelReminder];
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self errorToDictionary:error]];
         }
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
@@ -102,6 +120,7 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
         } else {
             [self sendError:error];
         }
+        [reminderHelper cancelReminder];
         CDVPluginResult* result = nil;
         if ([facade configure:config error:&error]) {
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
@@ -109,6 +128,35 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self errorToDictionary:error]];
         }
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }];
+}
+
+/**
+ * Snooze the still-tracking reminder if tracking is active and no reminder is already scheduled.
+ */
+- (void) snoozeReminder:(CDVInvokedUrlCommand*)command
+{
+    NSLog(@"%@ #%@", TAG, @"snoozeReminder");
+    [self.commandDelegate runInBackground:^{
+        if (![facade isStarted]) {
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            return;
+        }
+
+        MAURConfig *activeConfig = [self currentConfigInstance];
+        if (activeConfig == nil) {
+            activeConfig = [[MAURConfig alloc] initWithDefaults];
+        }
+
+        [self ensureNotificationDelegateIfNeeded];
+        [reminderHelper isReminderScheduledWithCompletion:^(BOOL scheduled) {
+            if (!scheduled) {
+                [reminderHelper scheduleSnoozeWithConfig:activeConfig];
+            }
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        }];
     }];
 }
 
@@ -336,11 +384,45 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 - (void) addEventListener:(CDVInvokedUrlCommand*)command
 {
     callbackId = command.callbackId;
+    [self flushPendingReminderNotificationTap];
 }
 
 - (void) removeEventListener:(CDVInvokedUrlCommand*)command
 {
     callbackId = nil;
+}
+
+- (MAURConfig *)currentConfigInstance
+{
+    if (config != nil) {
+        return config;
+    }
+
+    return [facade getConfig];
+}
+
+- (void)ensureNotificationDelegateIfNeeded
+{
+    if (@available(iOS 10, *)) {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        if (center.delegate != self) {
+            prevNotificationDelegate = center.delegate;
+            center.delegate = self;
+        }
+    }
+}
+
+- (void)rescheduleReminderIfTracking
+{
+    if ([facade isStarted]) {
+        MAURConfig *activeConfig = [self currentConfigInstance];
+        if (activeConfig != nil) {
+            [self ensureNotificationDelegateIfNeeded];
+            [reminderHelper scheduleReminderWithConfig:activeConfig];
+        }
+    } else {
+        [reminderHelper cancelReminder];
+    }
 }
 
 -(void) sendEvent:(NSString*)name
@@ -383,6 +465,36 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     CDVPluginResult* cordovaResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:message];
     [cordovaResult setKeepCallbackAsBool:YES];
     [self.commandDelegate sendPluginResult:cordovaResult callbackId:callbackId];
+}
+
+- (void)dispatchReminderNotificationTap:(NSDictionary *)payload
+{
+    if (callbackId == nil) {
+        pendingReminderNotificationTap = YES;
+        pendingReminderNotificationTapPayload = payload;
+        return;
+    }
+
+    [self sendEvent:@"reminder_notification_tap" result:payload];
+}
+
+- (void)flushPendingReminderNotificationTap
+{
+    if (!pendingReminderNotificationTap) {
+        return;
+    }
+    pendingReminderNotificationTap = NO;
+
+    NSDictionary *payload = pendingReminderNotificationTapPayload;
+    pendingReminderNotificationTapPayload = nil;
+    if (payload == nil) {
+        payload = @{
+            @"action": @"tap",
+            @"notificationId": @2001,
+            @"timestamp": @((long long)([[NSDate date] timeIntervalSince1970] * 1000.0))
+        };
+    }
+    [self sendEvent:@"reminder_notification_tap" result:payload];
 }
 
 - (void) sendError:(NSError*)error
@@ -493,8 +605,12 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     if ([dict objectForKey:UIApplicationLaunchOptionsLocationKey]) {
         NSLog(@"%@ %@", TAG, @"started by system on location event.");
         if (![config stopOnTerminate]) {
+            MAURSQLiteConfigurationDAO *configDAO = [MAURSQLiteConfigurationDAO sharedInstance];
+            [configDAO persistConfiguration:config];
             [facade start:nil];
             [facade switchMode:MAURBackgroundMode];
+            [self ensureNotificationDelegateIfNeeded];
+            [reminderHelper scheduleReminderWithConfig:config];
         }
     }
 }
@@ -517,10 +633,66 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     }
 }
 
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+didReceiveNotificationResponse:(UNNotificationResponse *)response
+         withCompletionHandler:(void (^)(void))completionHandler
+{
+    BOOL handled = NO;
+
+    if ([reminderHelper isReminderNotificationResponse:response]) {
+        handled = YES;
+        NSString *actionIdentifier = response.actionIdentifier;
+        MAURConfig *activeConfig = [self currentConfigInstance];
+        if (activeConfig == nil) {
+            activeConfig = [[MAURConfig alloc] initWithDefaults];
+        }
+
+        if ([reminderHelper isStopActionIdentifier:actionIdentifier]) {
+            NSError *stopError = nil;
+            [facade stop:&stopError];
+            [reminderHelper cancelReminder];
+            [self sendEvent:@"stop"];
+        } else if (@available(iOS 10.0, *)) {
+            if ([actionIdentifier isEqualToString:UNNotificationDefaultActionIdentifier]) {
+                NSDictionary *payload = @{
+                    @"action": @"tap",
+                    @"notificationId": @2001,
+                    @"timestamp": @((long long)([[NSDate date] timeIntervalSince1970] * 1000.0))
+                };
+                [self dispatchReminderNotificationTap:payload];
+                [reminderHelper cancelReminder];
+            } else if ([reminderHelper isSnoozeActionIdentifier:actionIdentifier]) {
+                if ([facade isStarted]) {
+                    [self ensureNotificationDelegateIfNeeded];
+                    [reminderHelper scheduleSnoozeWithConfig:activeConfig];
+                } else {
+                    [reminderHelper cancelReminder];
+                }
+            } else if ([reminderHelper isMuteActionIdentifier:actionIdentifier]) {
+                [reminderHelper cancelReminder];
+            } else {
+                [reminderHelper cancelReminder];
+            }
+        }
+    }
+
+    if (prevNotificationDelegate && [prevNotificationDelegate respondsToSelector:@selector(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:)])
+    {
+        [prevNotificationDelegate userNotificationCenter:center didReceiveNotificationResponse:response withCompletionHandler:completionHandler];
+        return;
+    }
+
+    if (completionHandler != nil) {
+        completionHandler();
+    }
+    (void)handled;
+}
+
 -(void) onAppTerminate:(NSNotification *)notification
 {
     NSLog(@"%@ %@", TAG, @"appTerminate");
     [facade onAppTerminate];
+    [reminderHelper cancelReminder];
 }
 
 @end

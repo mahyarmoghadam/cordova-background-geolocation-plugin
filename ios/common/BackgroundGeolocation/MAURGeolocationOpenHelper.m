@@ -14,7 +14,7 @@
 @implementation MAURGeolocationOpenHelper
 
 static NSString *const kDatabaseName = @"cordova_bg_geolocation.db";
-static NSInteger const kDatabaseVersion = 4;
+static NSInteger const kDatabaseVersion = 6;
 
 - (instancetype)init
 {
@@ -84,6 +84,19 @@ static NSInteger const kDatabaseVersion = 4;
         case 3:
             [sql addObjectsFromArray: @[
                 @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE @" INTEGER"
+            ]];
+        case 4:
+            [sql addObjectsFromArray: @[ 
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_INTERVAL_MINUTES @" INTEGER",
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_SNOOZE_INTERVAL_MINUTES @" INTEGER",
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_TITLE @" TEXT",
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_TEXT @" TEXT"
+            ]];
+        case 5:
+            [sql addObjectsFromArray: @[
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_STOP_LABEL @" TEXT",
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_SNOOZE_LABEL @" TEXT",
+                @"ALTER TABLE " @CC_TABLE_NAME @" ADD COLUMN " @CC_COLUMN_NAME_REMINDER_MUTE_LABEL @" TEXT"
             ]];
             break; // break only for previous db version (cascade statements)
         default:

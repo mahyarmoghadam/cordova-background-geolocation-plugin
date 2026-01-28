@@ -13,7 +13,12 @@ package com.tenforwardconsulting.bgloc.cordova;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.marianhello.bgloc.BackgroundGeolocationFacade;
 import com.marianhello.bgloc.Config;
@@ -24,6 +29,7 @@ import com.marianhello.bgloc.cordova.PluginRegistry;
 import com.marianhello.bgloc.cordova.headless.JsEvaluatorTaskRunner;
 import com.marianhello.bgloc.data.BackgroundActivity;
 import com.marianhello.bgloc.data.BackgroundLocation;
+import com.marianhello.bgloc.reminder.ReminderHelper;
 import com.marianhello.logging.LogEntry;
 import com.marianhello.logging.LoggerManager;
 
@@ -48,6 +54,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public static final String STOP_EVENT = "stop";
     public static final String ABORT_REQUESTED_EVENT = "abort_requested";
     public static final String HTTP_AUTHORIZATION_EVENT = "http_authorization";
+    public static final String REMINDER_NOTIFICATION_TAP_EVENT = "reminder_notification_tap";
 
     public static final String ACTION_START = "start";
     public static final String ACTION_STOP = "stop";
@@ -71,12 +78,17 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public static final String ACTION_END_TASK = "endTask";
     public static final String ACTION_REGISTER_HEADLESS_TASK = "registerHeadlessTask";
     public static final String ACTION_FORCE_SYNC = "forceSync";
+    public static final String ACTION_SNOOZE_REMINDER = "snoozeReminder";
 
     private BackgroundGeolocationFacade facade;
 
     private CallbackContext callbackContext;
 
     private org.slf4j.Logger logger;
+
+    private boolean pendingReminderNotificationTap = false;
+    private JSONObject pendingReminderNotificationTapPayload;
+    private BroadcastReceiver reminderTapReceiver;
 
     public static class ErrorPluginResult {
         public static PluginResult from(String message, int code) {
@@ -135,6 +147,10 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         logger = LoggerManager.getLogger(BackgroundGeolocationPlugin.class);
         facade = new BackgroundGeolocationFacade(this.getContext(), this);
         facade.resume();
+
+        registerReminderNotificationTapReceiver();
+        flushReminderNotificationTapFromStorage();
+        handleReminderNotificationTap(getActivity().getIntent());
     }
 
     public boolean execute(String action, final JSONArray data, final CallbackContext callbackContext) {
@@ -143,6 +159,9 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         if (ACTION_REGISTER_EVENT_LISTENER.equals(action)) {
             logger.debug("Registering event listeners");
             this.callbackContext = callbackContext;
+
+            flushPendingReminderNotificationTap();
+            flushReminderNotificationTapFromStorage();
 
             return true;
         }
@@ -365,6 +384,30 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
             logger.debug("Forced location sync requested");
             facade.forceSync();
             return true;
+        } else if (ACTION_SNOOZE_REMINDER.equals(action)) {
+            runOnWebViewThread(new Runnable() {
+                public void run() {
+                    try {
+                        Config config = facade.getConfig();
+                        if (config == null) {
+                            callbackContext.success();
+                            return;
+                        }
+                        Integer overrideMinutes = null;
+                        if (data != null && data.length() > 0 && !data.isNull(0)) {
+                            int minutes = data.getInt(0);
+                            if (minutes > 0) {
+                                overrideMinutes = minutes;
+                            }
+                        }
+                        ReminderHelper.snoozeIfEligible(getContext(), config, overrideMinutes);
+                        callbackContext.success();
+                    } catch (Exception e) {
+                        callbackContext.sendPluginResult(ErrorPluginResult.from("Snooze reminder failed", e, PluginException.SERVICE_ERROR));
+                    }
+                }
+            });
+            return true;
         }
 
         return false;
@@ -389,7 +432,12 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public void onResume(boolean multitasking) {
         logger.info("App will be resumed multitasking={}", multitasking);
         facade.resume();
+        handleReminderNotificationTap(getActivity().getIntent());
         sendEvent(FOREGROUND_EVENT);
+    }
+
+    public void onNewIntent(Intent intent) {
+        handleReminderNotificationTap(intent);
     }
 
     /**
@@ -414,6 +462,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public void onDestroy() {
         logger.info("Destroying plugin");
         facade.destroy();
+        unregisterReminderNotificationTapReceiver();
         super.onDestroy();
     }
 
@@ -483,6 +532,108 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         PluginResult result = ErrorPluginResult.from(e);
         result.setKeepCallback(true);
         callbackContext.sendPluginResult(result);
+    }
+
+    private void handleReminderNotificationTap(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        if (!intent.getBooleanExtra(ReminderHelper.EXTRA_REMINDER_NOTIFICATION_TAP, false)) {
+            return;
+        }
+
+        intent.removeExtra(ReminderHelper.EXTRA_REMINDER_NOTIFICATION_TAP);
+
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("action", "tap");
+            payload.put("notificationId", ReminderHelper.REMINDER_NOTIFICATION_ID);
+            payload.put("timestamp", System.currentTimeMillis());
+        } catch (JSONException e) {
+            logger.error("Failed to build reminder notification tap payload: {}", e.getMessage());
+        }
+
+        dispatchReminderNotificationTap(payload);
+    }
+
+    private void registerReminderNotificationTapReceiver() {
+        if (reminderTapReceiver != null) {
+            return;
+        }
+        reminderTapReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                long timestamp = intent != null ? intent.getLongExtra(ReminderHelper.EXTRA_REMINDER_TAP_TIMESTAMP, System.currentTimeMillis())
+                        : System.currentTimeMillis();
+                JSONObject payload = new JSONObject();
+                try {
+                    payload.put("action", "tap");
+                    payload.put("notificationId", ReminderHelper.REMINDER_NOTIFICATION_ID);
+                    payload.put("timestamp", timestamp);
+                } catch (JSONException e) {
+                    logger.error("Failed to build reminder notification tap payload: {}", e.getMessage());
+                }
+                dispatchReminderNotificationTap(payload);
+            }
+        };
+        IntentFilter filter = new IntentFilter(ReminderHelper.ACTION_REMINDER_TAP_INTERNAL);
+        LocalBroadcastManager.getInstance(getContext().getApplicationContext()).registerReceiver(reminderTapReceiver, filter);
+    }
+
+    private void unregisterReminderNotificationTapReceiver() {
+        if (reminderTapReceiver == null) {
+            return;
+        }
+        try {
+            LocalBroadcastManager.getInstance(getContext().getApplicationContext()).unregisterReceiver(reminderTapReceiver);
+        } catch (Throwable ignored) {
+        }
+        reminderTapReceiver = null;
+    }
+
+    private void flushReminderNotificationTapFromStorage() {
+        Long timestamp = ReminderHelper.consumeReminderNotificationTapTimestamp(getContext());
+        if (timestamp == null) {
+            return;
+        }
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("action", "tap");
+            payload.put("notificationId", ReminderHelper.REMINDER_NOTIFICATION_ID);
+            payload.put("timestamp", timestamp);
+        } catch (JSONException e) {
+            logger.error("Failed to build reminder notification tap payload: {}", e.getMessage());
+        }
+        dispatchReminderNotificationTap(payload);
+    }
+
+    private void dispatchReminderNotificationTap(JSONObject payload) {
+        if (callbackContext == null) {
+            pendingReminderNotificationTap = true;
+            pendingReminderNotificationTapPayload = payload;
+            return;
+        }
+        sendEvent(REMINDER_NOTIFICATION_TAP_EVENT, payload);
+    }
+
+    private void flushPendingReminderNotificationTap() {
+        if (!pendingReminderNotificationTap) {
+            return;
+        }
+        pendingReminderNotificationTap = false;
+        JSONObject payload = pendingReminderNotificationTapPayload;
+        pendingReminderNotificationTapPayload = null;
+        if (payload == null) {
+            payload = new JSONObject();
+            try {
+                payload.put("action", "tap");
+                payload.put("notificationId", ReminderHelper.REMINDER_NOTIFICATION_ID);
+                payload.put("timestamp", System.currentTimeMillis());
+            } catch (JSONException e) {
+                logger.error("Failed to build reminder notification tap payload: {}", e.getMessage());
+            }
+        }
+        sendEvent(REMINDER_NOTIFICATION_TAP_EVENT, payload);
     }
 
     private void runOnUiThread(Runnable runnable) {

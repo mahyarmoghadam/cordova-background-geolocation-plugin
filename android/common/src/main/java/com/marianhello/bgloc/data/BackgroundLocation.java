@@ -14,6 +14,8 @@ import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Locale;
+
 public class BackgroundLocation implements Parcelable {
     public static final int DELETED = 0;
     public static final int POST_PENDING = 1;
@@ -839,16 +841,16 @@ public class BackgroundLocation implements Parcelable {
     public String toString () {
         StringBuilder s = new StringBuilder();
         s.append("BGLocation[").append(provider);
-        s.append(String.format(" %.6f,%.6f", latitude, longitude));
+        s.append(String.format(Locale.US, " %.6f,%.6f", latitude, longitude));
         s.append(" id=").append(locationId);
         if (hasAccuracy) {
-            s.append(String.format(" acc=%.0f", accuracy));
+            s.append(String.format(Locale.US, " acc=%.0f", accuracy));
         } else {
             s.append(" acc=???");
         }
 
         if (hasVerticalAccuracy) {
-            s.append(String.format(" altAcc=%.0f", verticalAccuracy));
+            s.append(String.format(Locale.US, " altAcc=%.0f", verticalAccuracy));
         }
         else {
             s.append(" altAcc=???");

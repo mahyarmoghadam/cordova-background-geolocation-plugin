@@ -48,6 +48,14 @@ public class Config implements Parcelable
     private String notificationIconLarge;
     private String notificationIconSmall;
     private String notificationIconColor;
+    private Integer stillTrackingReminderIntervalMinutes;
+    private Integer stillTrackingReminderSnoozeIntervalMinutes;
+    private String stillTrackingReminderTitle;
+    private String stillTrackingReminderText;
+    private String stillTrackingReminderStopLabel;
+    private String stillTrackingReminderSnoozeLabel;
+    private String stillTrackingReminderMuteLabel;
+    private Boolean stillTrackingReminderExactAlarm;
     private Integer locationProvider;
     private Integer interval; //milliseconds
     private Integer fastestInterval; //milliseconds
@@ -79,6 +87,14 @@ public class Config implements Parcelable
         this.notificationIconLarge = config.notificationIconLarge;
         this.notificationIconSmall = config.notificationIconSmall;
         this.notificationIconColor = config.notificationIconColor;
+        this.stillTrackingReminderIntervalMinutes = config.stillTrackingReminderIntervalMinutes;
+        this.stillTrackingReminderSnoozeIntervalMinutes = config.stillTrackingReminderSnoozeIntervalMinutes;
+        this.stillTrackingReminderTitle = config.stillTrackingReminderTitle;
+        this.stillTrackingReminderText = config.stillTrackingReminderText;
+        this.stillTrackingReminderStopLabel = config.stillTrackingReminderStopLabel;
+        this.stillTrackingReminderSnoozeLabel = config.stillTrackingReminderSnoozeLabel;
+        this.stillTrackingReminderMuteLabel = config.stillTrackingReminderMuteLabel;
+        this.stillTrackingReminderExactAlarm = config.stillTrackingReminderExactAlarm;
         this.locationProvider = config.locationProvider;
         this.interval = config.interval;
         this.fastestInterval = config.fastestInterval;
@@ -109,6 +125,14 @@ public class Config implements Parcelable
         setLargeNotificationIcon(in.readString());
         setSmallNotificationIcon(in.readString());
         setNotificationIconColor(in.readString());
+        setStillTrackingReminderIntervalMinutes((Integer) in.readValue(null));
+        setStillTrackingReminderSnoozeIntervalMinutes((Integer) in.readValue(null));
+        setStillTrackingReminderTitle(in.readString());
+        setStillTrackingReminderText(in.readString());
+        setStillTrackingReminderStopLabel(in.readString());
+        setStillTrackingReminderSnoozeLabel(in.readString());
+        setStillTrackingReminderMuteLabel(in.readString());
+        setStillTrackingReminderExactAlarm((Boolean) in.readValue(null));
         setStopOnTerminate((Boolean) in.readValue(null));
         setStartOnBoot((Boolean) in.readValue(null));
         setStartForeground((Boolean) in.readValue(null));
@@ -139,6 +163,14 @@ public class Config implements Parcelable
         config.notificationIconLarge = "";
         config.notificationIconSmall = "";
         config.notificationIconColor = "";
+        config.stillTrackingReminderIntervalMinutes = null;
+        config.stillTrackingReminderSnoozeIntervalMinutes = null;
+        config.stillTrackingReminderTitle = null;
+        config.stillTrackingReminderText = null;
+        config.stillTrackingReminderStopLabel = null;
+        config.stillTrackingReminderSnoozeLabel = null;
+        config.stillTrackingReminderMuteLabel = null;
+        config.stillTrackingReminderExactAlarm = false;
         config.locationProvider = DISTANCE_FILTER_PROVIDER;
         config.interval = 600000; //milliseconds
         config.fastestInterval = 120000; //milliseconds
@@ -174,6 +206,14 @@ public class Config implements Parcelable
         out.writeString(getLargeNotificationIcon());
         out.writeString(getSmallNotificationIcon());
         out.writeString(getNotificationIconColor());
+        out.writeValue(getStillTrackingReminderIntervalMinutes());
+        out.writeValue(getStillTrackingReminderSnoozeIntervalMinutes());
+        out.writeString(getStillTrackingReminderTitle());
+        out.writeString(getStillTrackingReminderText());
+        out.writeString(getStillTrackingReminderStopLabel());
+        out.writeString(getStillTrackingReminderSnoozeLabel());
+        out.writeString(getStillTrackingReminderMuteLabel());
+        out.writeValue(getStillTrackingReminderExactAlarm());
         out.writeValue(getStopOnTerminate());
         out.writeValue(getStartOnBoot());
         out.writeValue(getStartForeground());
@@ -291,6 +331,102 @@ public class Config implements Parcelable
 
     public void setNotificationText(String notificationText) {
         this.notificationText = notificationText;
+    }
+
+    public boolean hasStillTrackingReminderIntervalMinutes() {
+        return stillTrackingReminderIntervalMinutes != null;
+    }
+
+    public Integer getStillTrackingReminderIntervalMinutes() {
+        return stillTrackingReminderIntervalMinutes;
+    }
+
+    public void setStillTrackingReminderIntervalMinutes(Integer minutes) {
+        this.stillTrackingReminderIntervalMinutes = minutes;
+    }
+
+    public boolean hasStillTrackingReminderSnoozeIntervalMinutes() {
+        return stillTrackingReminderSnoozeIntervalMinutes != null;
+    }
+
+    public Integer getStillTrackingReminderSnoozeIntervalMinutes() {
+        return stillTrackingReminderSnoozeIntervalMinutes;
+    }
+
+    public void setStillTrackingReminderSnoozeIntervalMinutes(Integer minutes) {
+        this.stillTrackingReminderSnoozeIntervalMinutes = minutes;
+    }
+
+    public boolean hasStillTrackingReminderTitle() {
+        return stillTrackingReminderTitle != null;
+    }
+
+    public String getStillTrackingReminderTitle() {
+        return stillTrackingReminderTitle;
+    }
+
+    public void setStillTrackingReminderTitle(String title) {
+        this.stillTrackingReminderTitle = title;
+    }
+
+    public boolean hasStillTrackingReminderText() {
+        return stillTrackingReminderText != null;
+    }
+
+    public String getStillTrackingReminderText() {
+        return stillTrackingReminderText;
+    }
+
+    public void setStillTrackingReminderText(String text) {
+        this.stillTrackingReminderText = text;
+    }
+
+    public boolean hasStillTrackingReminderStopLabel() {
+        return stillTrackingReminderStopLabel != null;
+    }
+
+    public String getStillTrackingReminderStopLabel() {
+        return stillTrackingReminderStopLabel;
+    }
+
+    public void setStillTrackingReminderStopLabel(String label) {
+        this.stillTrackingReminderStopLabel = label;
+    }
+
+    public boolean hasStillTrackingReminderSnoozeLabel() {
+        return stillTrackingReminderSnoozeLabel != null;
+    }
+
+    public String getStillTrackingReminderSnoozeLabel() {
+        return stillTrackingReminderSnoozeLabel;
+    }
+
+    public void setStillTrackingReminderSnoozeLabel(String label) {
+        this.stillTrackingReminderSnoozeLabel = label;
+    }
+
+    public boolean hasStillTrackingReminderMuteLabel() {
+        return stillTrackingReminderMuteLabel != null;
+    }
+
+    public String getStillTrackingReminderMuteLabel() {
+        return stillTrackingReminderMuteLabel;
+    }
+
+    public void setStillTrackingReminderMuteLabel(String label) {
+        this.stillTrackingReminderMuteLabel = label;
+    }
+
+    public boolean hasStillTrackingReminderExactAlarm() {
+        return stillTrackingReminderExactAlarm != null;
+    }
+
+    public Boolean getStillTrackingReminderExactAlarm() {
+        return stillTrackingReminderExactAlarm;
+    }
+
+    public void setStillTrackingReminderExactAlarm(Boolean exact) {
+        this.stillTrackingReminderExactAlarm = exact;
     }
 
     public boolean hasLargeNotificationIcon() {
@@ -558,6 +694,14 @@ public class Config implements Parcelable
                 .append(" nIconLarge=").append(getLargeNotificationIcon())
                 .append(" nIconSmall=").append(getSmallNotificationIcon())
                 .append(" nIconColor=").append(getNotificationIconColor())
+                .append(" reminderIntervalMinutes=").append(getStillTrackingReminderIntervalMinutes())
+                .append(" reminderSnoozeMinutes=").append(getStillTrackingReminderSnoozeIntervalMinutes())
+                .append(" reminderTitle=").append(getStillTrackingReminderTitle())
+                .append(" reminderText=").append(getStillTrackingReminderText())
+                .append(" reminderStopLabel=").append(getStillTrackingReminderStopLabel())
+                .append(" reminderSnoozeLabel=").append(getStillTrackingReminderSnoozeLabel())
+                .append(" reminderMuteLabel=").append(getStillTrackingReminderMuteLabel())
+                .append(" stillTrackingReminderExactAlarm=").append(getStillTrackingReminderExactAlarm())
                 .append(" url=").append(getUrl())
                 .append(" syncUrl=").append(getSyncUrl())
                 .append(" syncThreshold=").append(getSyncThreshold())
@@ -602,6 +746,30 @@ public class Config implements Parcelable
         }
         if (config2.hasNotificationText()) {
             merger.setNotificationText(config2.getNotificationText());
+        }
+        if (config2.hasStillTrackingReminderIntervalMinutes()) {
+            merger.setStillTrackingReminderIntervalMinutes(config2.getStillTrackingReminderIntervalMinutes());
+        }
+        if (config2.hasStillTrackingReminderSnoozeIntervalMinutes()) {
+            merger.setStillTrackingReminderSnoozeIntervalMinutes(config2.getStillTrackingReminderSnoozeIntervalMinutes());
+        }
+        if (config2.hasStillTrackingReminderTitle()) {
+            merger.setStillTrackingReminderTitle(config2.getStillTrackingReminderTitle());
+        }
+        if (config2.hasStillTrackingReminderText()) {
+            merger.setStillTrackingReminderText(config2.getStillTrackingReminderText());
+        }
+        if (config2.hasStillTrackingReminderStopLabel()) {
+            merger.setStillTrackingReminderStopLabel(config2.getStillTrackingReminderStopLabel());
+        }
+        if (config2.hasStillTrackingReminderSnoozeLabel()) {
+            merger.setStillTrackingReminderSnoozeLabel(config2.getStillTrackingReminderSnoozeLabel());
+        }
+        if (config2.hasStillTrackingReminderMuteLabel()) {
+            merger.setStillTrackingReminderMuteLabel(config2.getStillTrackingReminderMuteLabel());
+        }
+        if (config2.hasStillTrackingReminderExactAlarm()) {
+            merger.setStillTrackingReminderExactAlarm(config2.getStillTrackingReminderExactAlarm());
         }
         if (config2.hasStopOnTerminate()) {
             merger.setStopOnTerminate(config2.getStopOnTerminate());

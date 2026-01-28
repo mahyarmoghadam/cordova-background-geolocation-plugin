@@ -122,7 +122,9 @@ public class ThreadUtils {
      * Asserts that the current thread is running on the main thread.
      */
     public static void assertOnUiThread() {
-        assert runningOnUiThread();
+        if (ThreadUtils.class.desiredAssertionStatus() && !runningOnUiThread()) {
+            throw new AssertionError();
+        }
     }
 
     /**

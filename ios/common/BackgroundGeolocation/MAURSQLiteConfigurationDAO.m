@@ -87,8 +87,15 @@
         @COMMA_SEP @CC_COLUMN_NAME_MAX_LOCATIONS
         @COMMA_SEP @CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES
         @COMMA_SEP @CC_COLUMN_NAME_TEMPLATE
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_INTERVAL_MINUTES
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_SNOOZE_INTERVAL_MINUTES
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_TITLE
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_TEXT
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_STOP_LABEL
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_SNOOZE_LABEL
+        @COMMA_SEP @CC_COLUMN_NAME_REMINDER_MUTE_LABEL
         @COMMA_SEP @CC_COLUMN_NAME_LAST_UPDATED_AT
-        @") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DateTime('now'))";
+        @") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DateTime('now'))";
 
     [queue inDatabase:^(FMDatabase *database) {
         success = [database executeUpdate:sql,
@@ -119,7 +126,14 @@
                     [config hasSaveBatteryOnBackground] ? config._saveBatteryOnBackground : @CC_COLUMN_NAME_NULLABLE,
                     [config hasMaxLocations] ? config.maxLocations : @CC_COLUMN_NAME_NULLABLE,
                     [config hasPauseLocationUpdates] ? config._pauseLocationUpdates : @CC_COLUMN_NAME_NULLABLE,
-                    (templateString != nil) ? templateString : @CC_COLUMN_NAME_NULLABLE
+                    (templateString != nil) ? templateString : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderIntervalMinutes] ? config.stillTrackingReminderIntervalMinutes : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderSnoozeIntervalMinutes] ? config.stillTrackingReminderSnoozeIntervalMinutes : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderTitle] ? config.stillTrackingReminderTitle : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderText] ? config.stillTrackingReminderText : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderStopLabel] ? config.stillTrackingReminderStopLabel : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderSnoozeLabel] ? config.stillTrackingReminderSnoozeLabel : @CC_COLUMN_NAME_NULLABLE,
+                    [config hasStillTrackingReminderMuteLabel] ? config.stillTrackingReminderMuteLabel : @CC_COLUMN_NAME_NULLABLE
                 ];
 
         if (success) {
@@ -165,6 +179,13 @@
     @COMMA_SEP @CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES
     @COMMA_SEP @CC_COLUMN_NAME_TEMPLATE
     @COMMA_SEP @CC_COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_INTERVAL_MINUTES
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_SNOOZE_INTERVAL_MINUTES
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_TITLE
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_TEXT
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_STOP_LABEL
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_SNOOZE_LABEL
+    @COMMA_SEP @CC_COLUMN_NAME_REMINDER_MUTE_LABEL
     @" FROM " @CC_TABLE_NAME @" WHERE " @CC_COLUMN_NAME_ID @" = 1";
     
     [queue inDatabase:^(FMDatabase *database) {
@@ -229,6 +250,27 @@
             }
             if ([self isNonNull:rs columnIndex:27]) {
                 config._useWebViewCookieStore = [NSNumber numberWithBool:[rs intForColumnIndex:27] == 1 ? YES : NO];
+            }
+            if ([self isNonNull:rs columnIndex:28]) {
+                config.stillTrackingReminderIntervalMinutes = [NSNumber numberWithInt:[rs intForColumnIndex:28]];
+            }
+            if ([self isNonNull:rs columnIndex:29]) {
+                config.stillTrackingReminderSnoozeIntervalMinutes = [NSNumber numberWithInt:[rs intForColumnIndex:29]];
+            }
+            if ([self isNonNull:rs columnIndex:30]) {
+                config.stillTrackingReminderTitle = [rs stringForColumnIndex:30];
+            }
+            if ([self isNonNull:rs columnIndex:31]) {
+                config.stillTrackingReminderText = [rs stringForColumnIndex:31];
+            }
+            if ([self isNonNull:rs columnIndex:32]) {
+                config.stillTrackingReminderStopLabel = [rs stringForColumnIndex:32];
+            }
+            if ([self isNonNull:rs columnIndex:33]) {
+                config.stillTrackingReminderSnoozeLabel = [rs stringForColumnIndex:33];
+            }
+            if ([self isNonNull:rs columnIndex:34]) {
+                config.stillTrackingReminderMuteLabel = [rs stringForColumnIndex:34];
             }
         }
         

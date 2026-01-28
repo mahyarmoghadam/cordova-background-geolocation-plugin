@@ -43,6 +43,13 @@
         @{ @"name": @CC_COLUMN_NAME_MAX_LOCATIONS, @"type": [SQLColumnType sqlColumnWithType: kInteger]},
         @{ @"name": @CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES, @"type": [SQLColumnType sqlColumnWithType: kInteger]},
         @{ @"name": @CC_COLUMN_NAME_TEMPLATE, @"type": [SQLColumnType sqlColumnWithType: kText]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_INTERVAL_MINUTES, @"type": [SQLColumnType sqlColumnWithType: kInteger]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_SNOOZE_INTERVAL_MINUTES, @"type": [SQLColumnType sqlColumnWithType: kInteger]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_TITLE, @"type": [SQLColumnType sqlColumnWithType: kText]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_TEXT, @"type": [SQLColumnType sqlColumnWithType: kText]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_STOP_LABEL, @"type": [SQLColumnType sqlColumnWithType: kText]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_SNOOZE_LABEL, @"type": [SQLColumnType sqlColumnWithType: kText]},
+        @{ @"name": @CC_COLUMN_NAME_REMINDER_MUTE_LABEL, @"type": [SQLColumnType sqlColumnWithType: kText]},
         @{ @"name": @CC_COLUMN_NAME_LAST_UPDATED_AT, @"type": [SQLColumnType sqlColumnWithType: kInteger]}        
     ];
     

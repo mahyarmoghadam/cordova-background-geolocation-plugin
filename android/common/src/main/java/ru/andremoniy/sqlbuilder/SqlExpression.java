@@ -21,6 +21,7 @@ package ru.andremoniy.sqlbuilder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 public class SqlExpression {
     public static final String NULL = "NULL";
@@ -240,7 +241,7 @@ public class SqlExpression {
             if (token.matches("^(and|or)?i$")) {
                 throw new IllegalArgumentException("Invalid connector token provided");
             }
-            token = token.toUpperCase();
+            token = token.toUpperCase(Locale.US);
         }
         return token;
     }
@@ -345,7 +346,7 @@ public class SqlExpression {
             if (!weight.matches("^(first|last)?i$")) {
                 throw new IllegalArgumentException("Invalid weight token provided.");
             }
-            return weight.toUpperCase();
+            return weight.toUpperCase(Locale.US);
         }
         return "DEFAULT";
     }
@@ -382,7 +383,7 @@ public class SqlExpression {
             String escapedValue = String.format("'%s'", value);
             return escapedValue;
         } else if (value instanceof Date) {
-            DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
             return String.format("'%s'", df.format((Date)value));
         } else if (value instanceof SqlExpression) {
             return ((SqlExpression)value).expression();

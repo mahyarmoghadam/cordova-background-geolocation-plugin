@@ -39,6 +39,13 @@
 #define CC_COLUMN_NAME_MAX_LOCATIONS          "max_locations"
 #define CC_COLUMN_NAME_PAUSE_LOCATION_UPDATES "pause_updates"
 #define CC_COLUMN_NAME_TEMPLATE               "template"
+#define CC_COLUMN_NAME_REMINDER_INTERVAL_MINUTES "still_tracking_reminder_interval_minutes"
+#define CC_COLUMN_NAME_REMINDER_SNOOZE_INTERVAL_MINUTES "still_tracking_reminder_snooze_interval_minutes"
+#define CC_COLUMN_NAME_REMINDER_TITLE         "still_tracking_reminder_title"
+#define CC_COLUMN_NAME_REMINDER_TEXT          "still_tracking_reminder_text"
+#define CC_COLUMN_NAME_REMINDER_STOP_LABEL    "still_tracking_reminder_stop_label"
+#define CC_COLUMN_NAME_REMINDER_SNOOZE_LABEL  "still_tracking_reminder_snooze_label"
+#define CC_COLUMN_NAME_REMINDER_MUTE_LABEL    "still_tracking_reminder_mute_label"
 #define CC_COLUMN_NAME_LAST_UPDATED_AT        "updated_at"
 
 @interface MAURConfigurationContract : NSObject

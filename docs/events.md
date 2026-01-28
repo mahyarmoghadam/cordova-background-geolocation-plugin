@@ -19,6 +19,7 @@ nav_order: 3
 | `background`        |                        | Android      | all         | app entered background state                     |
 | `abort_requested`   |                        | all          | all         | server responded with "285 Updates Not Required" |
 | `http_authorization`|                        | all          | all         | server responded with "401 Unauthorized"         |
+| `reminder_notification_tap` | `{ action, notificationId, timestamp }` | all | all | user opened app by tapping reminder notification |
 
 ## Location event
 
@@ -50,6 +51,16 @@ Note: Do not use location `id` as unique key in your database as ids will be reu
 | `confidence`       | `Number`  | Percentage indicating the likelihood user is performing this activity. |
 | `type`             | `String`  | "IN_VEHICLE", "ON_BICYCLE", "ON_FOOT", "RUNNING", "STILL",             |
 |                    |           | "TILTING", "UNKNOWN", "WALKING"                                        |
+
+## Reminder notification tap event
+
+Triggered when the user opens the app by tapping the reminder notification body (not an action button).
+
+| Parameter        | Type      | Description                                  |
+|------------------|-----------|----------------------------------------------|
+| `action`         | `String`  | Always `"tap"`                               |
+| `notificationId` | `Number`  | Notification id (currently `2001`)           |
+| `timestamp`      | `Number`  | UTC time in ms when tap was handled          |
 
 Event listeners can registered with:
 

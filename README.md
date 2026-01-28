@@ -68,6 +68,15 @@ BackgroundGeolocation.configure({
     distanceFilter: 50,
     notificationTitle: 'Background tracking',
     notificationText: 'enabled',
+    stillTrackingReminderInterval: 60, // minutes after start to show a reminder
+    stillTrackingReminderSnoozeInterval: 15, // optional minutes for Snooze action
+    stillTrackingReminderTitle: 'Tracking still active',
+    stillTrackingReminderText: 'Background tracking remains enabled',
+    stillTrackingReminderStopLabel: 'Stop',
+    stillTrackingReminderSnoozeLabel: 'Snooze',
+    stillTrackingReminderMuteLabel: 'Mute',
+    // Set to true to request exact reminder alarms (Android 12+ requires SCHEDULE_EXACT_ALARM)
+    stillTrackingReminderExactAlarm: false,
     debug: true,
     interval: 10000,
     fastestInterval: 5000,

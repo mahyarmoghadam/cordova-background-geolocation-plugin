@@ -49,6 +49,13 @@ BackgroundGeolocation.configure({
     distanceFilter: 50,
     notificationTitle: 'Background tracking',
     notificationText: 'enabled',
+    stillTrackingReminderInterval: 60, // minutes after start to show a reminder
+    stillTrackingReminderSnoozeInterval: 15, // optional minutes for Snooze action
+    stillTrackingReminderTitle: 'Tracking still active',
+    stillTrackingReminderText: 'Background tracking remains enabled',
+    stillTrackingReminderStopLabel: 'Stop',
+    stillTrackingReminderSnoozeLabel: 'Snooze',
+    stillTrackingReminderMuteLabel: 'Mute',
     debug: true,
     interval: 10000,
     fastestInterval: 5000,

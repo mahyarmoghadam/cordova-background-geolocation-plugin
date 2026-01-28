@@ -21,7 +21,7 @@ import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationE
 public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
     private static final String TAG = SQLiteOpenHelper.class.getName();
     public static final String SQLITE_DATABASE_NAME = "cordova_bg_geolocation.db";
-    public static final int DATABASE_VERSION = 17;
+    public static final int DATABASE_VERSION = 19;
 
     public static final String TEXT_TYPE = " TEXT";
     public static final String INTEGER_TYPE = " INTEGER";
@@ -124,6 +124,24 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
                 case 16:
                 alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
                     " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_USE_WEBVIEW_COOKIE_STORE + INTEGER_TYPE);
+
+                    case 17:
+                    alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_INTERVAL_MINUTES + INTEGER_TYPE);
+                    alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_MINUTES + INTEGER_TYPE);
+                    alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_TITLE + TEXT_TYPE);
+                    alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_TEXT + TEXT_TYPE);
+
+                    case 18:
+                        alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                            " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_STOP_LABEL + TEXT_TYPE);
+                        alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                            " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_SNOOZE_LABEL + TEXT_TYPE);
+                        alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                            " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_REMINDER_MUTE_LABEL + TEXT_TYPE);
 
                 break; // DO NOT FORGET TO MOVE DOWN BREAK ON DB UPGRADE!!!
             default:

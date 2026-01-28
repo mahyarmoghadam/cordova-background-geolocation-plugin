@@ -35,6 +35,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
 import com.marianhello.bgloc.sync.NotificationHelper;
+import com.marianhello.bgloc.reminder.ReminderHelper;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.PostLocationTask;
 import com.marianhello.bgloc.ResourceResolver;
@@ -61,6 +62,8 @@ import com.marianhello.logging.UncaughtExceptionLogger;
 
 import org.chromium.content.browser.ThreadUtils;
 import org.json.JSONException;
+
+import java.util.Locale;
 
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsCommand;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsMessage;
@@ -280,7 +283,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         Config config = getConfig();
         if (config.getStopOnTerminate()) {
             logger.info("Stopping self");
-            stopSelf();
+            stop();
         } else {
             logger.info("Continue running in background");
         }
@@ -297,7 +300,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         boolean containsCommand = containsCommand(intent);
         logger.debug(
-                String.format("Service in [%s] state. cmdId: [%s]. startId: [%d]",
+            String.format(Locale.US, "Service in [%s] state. cmdId: [%s]. startId: [%d]",
                         sIsRunning ? "STARTED" : "NOT STARTED",
                         containsCommand ? getCommand(intent).getId() : "N/A",
                         startId)
@@ -393,6 +396,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             }
         });
 
+        ReminderHelper.schedule(this, mConfig);
+
         Bundle bundle = new Bundle();
         bundle.putInt("action", MSG_ON_SERVICE_STARTED);
         bundle.putLong("serviceId", mServiceId);
@@ -417,6 +422,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         stopForeground(true);
         stopSelf();
+
+        ReminderHelper.cancel(this);
 
         broadcastMessage(MSG_ON_SERVICE_STOPPED);
         sIsRunning = false;
@@ -491,6 +498,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                             notificationManager.notify(NOTIFICATION_ID, notification);
                         }
                     }
+
+                    // reschedule reminder with updated config
+                    ReminderHelper.schedule(LocationServiceImpl.this, mConfig);
                 }
 
                 if (currentConfig.getLocationProvider() != mConfig.getLocationProvider()) {
