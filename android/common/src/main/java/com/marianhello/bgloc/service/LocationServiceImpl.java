@@ -32,6 +32,7 @@ import android.os.Process;
 import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import com.marianhello.bgloc.BackgroundGeolocationFacade;
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
 import com.marianhello.bgloc.sync.NotificationHelper;
@@ -367,6 +368,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             return;
         }
 
+        if (!hasRequiredLocationPermissions()) {
+            handlePermissionDenied("Location permission missing. Service start aborted.");
+            return;
+        }
+
         if (mConfig == null) {
             logger.warn("Attempt to start unconfigured service. Will use stored or default.");
             mConfig = getConfig();
@@ -432,6 +438,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @Override
     public void startForeground() {
         if (sIsRunning && !mIsInForeground) {
+            if (!hasRequiredLocationPermissions()) {
+                handlePermissionDenied("Location permission missing. Foreground start aborted.");
+                return;
+            }
             Config config = getConfig();
             Notification notification = new NotificationHelper.NotificationFactory(this).getNotification(
                     config.getNotificationTitle(),
@@ -444,8 +454,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
                         LocationProvider.FOREGROUND_MODE);
             }
-            super.startForeground(NOTIFICATION_ID, notification);
-            mIsInForeground = true;
+            try {
+                super.startForeground(NOTIFICATION_ID, notification);
+                mIsInForeground = true;
+            } catch (SecurityException e) {
+                logger.error("Failed to start foreground service", e);
+                handlePermissionDenied(e.getMessage());
+            }
         }
     }
 
@@ -796,5 +811,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     public static @Nullable LocationTransform getLocationTransform() {
         return sLocationTransform;
+    }
+
+    private boolean hasRequiredLocationPermissions() {
+        return BackgroundGeolocationFacade.hasPermissions(this, BackgroundGeolocationFacade.PERMISSIONS);
+    }
+
+    private void handlePermissionDenied(String message) {
+        String errorMessage = message != null ? message : "Location permission denied";
+        PluginException error = new PluginException(errorMessage, PluginException.PERMISSION_DENIED_ERROR);
+        onError(error);
+        stop();
     }
 }
