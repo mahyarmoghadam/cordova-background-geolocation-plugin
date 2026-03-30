@@ -97,14 +97,14 @@
         }
     }
 
-    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:useWebViewCookieStore timeout:2.0];
-
-    NSURLSessionTask *task = [urlSession uploadTaskWithRequest:request fromFile:jsonUrl];
-    task.taskDescription = fileName;
-    [tasks addObject:task];
-    cookieBridgeFlags[@(task.taskIdentifier)] = @(useWebViewCookieStore);
-    DDLogInfo(@"Started upload for %@ as task %zu/%@/%@", jsonUrl.lastPathComponent, (unsigned long)task.taskIdentifier, task.taskDescription, task);
-    [task resume];
+    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:useWebViewCookieStore completion:^{
+        NSURLSessionTask *task = [urlSession uploadTaskWithRequest:request fromFile:jsonUrl];
+        task.taskDescription = fileName;
+        [tasks addObject:task];
+        cookieBridgeFlags[@(task.taskIdentifier)] = @(useWebViewCookieStore);
+        DDLogInfo(@"Started upload for %@ as task %zu/%@/%@", jsonUrl.lastPathComponent, (unsigned long)task.taskIdentifier, task.taskDescription, task);
+        [task resume];
+    }];
     
 }
 
@@ -154,7 +154,7 @@ NSString *stringFromFileSize(unsigned long long theSize)
     if (useCookieBridge != nil && [useCookieBridge boolValue]) {
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)task.response;
         if (httpResponse != nil && task.originalRequest.URL != nil) {
-            [MAURCookieBridge persistCookiesFromResponse:httpResponse forURL:task.originalRequest.URL useWebViewCookieStore:YES];
+            [MAURCookieBridge persistCookiesFromResponse:httpResponse forURL:task.originalRequest.URL useWebViewCookieStore:YES completion:nil];
         }
     }
     [cookieBridgeFlags removeObjectForKey:@(task.taskIdentifier)];

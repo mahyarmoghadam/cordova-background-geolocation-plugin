@@ -12,11 +12,12 @@
 
 + (void)applyCookiesToRequest:(NSMutableURLRequest * _Nonnull)request
         useWebViewCookieStore:(BOOL)useWebViewCookieStore
-                      timeout:(NSTimeInterval)timeout;
+                   completion:(dispatch_block_t _Nullable)completion;
 
 + (void)persistCookiesFromResponse:(NSHTTPURLResponse * _Nullable)response
                              forURL:(NSURL * _Nonnull)url
-              useWebViewCookieStore:(BOOL)useWebViewCookieStore;
+              useWebViewCookieStore:(BOOL)useWebViewCookieStore
+                         completion:(dispatch_block_t _Nullable)completion;
 
 @end
 

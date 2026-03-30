@@ -22,6 +22,12 @@ static NSString * const TAG = @"MAURPostLocationTask";
 {
     
 }
+
+- (void)post:(MAURLocation*)location
+       toUrl:(NSString*)url
+withTemplate:(id)locationTemplate
+withHttpHeaders:(NSMutableDictionary*)httpHeaders
+  completion:(void (^ _Nonnull)(BOOL success))completion;
 @end
 
 @implementation MAURPostLocationTask
@@ -92,33 +98,45 @@ static MAURLocationTransform s_locationTransform = nil;
         MAURSQLiteLocationDAO *locationDAO = [MAURSQLiteLocationDAO sharedInstance];
         // TODO: investigate location id always 0
         NSNumber *locationId = [locationDAO persistLocation:location limitRows:_config.maxLocations.integerValue];
-        
-        if (hasConnectivity && [self.config hasValidUrl]) {
-            NSError *error = nil;
-            if ([self post:location toUrl:self.config.url withTemplate:self.config._template withHttpHeaders:self.config.httpHeaders error:&error]) {
-                if (locationId != nil) {
-                    [locationDAO deleteLocation:locationId error:nil];
+
+        void (^finishAdd)(void) = ^{
+            if ([self.config hasValidSyncUrl]) {
+                NSNumber *locationsCount = [locationDAO getLocationsForSyncCount];
+                if (locationsCount && [locationsCount integerValue] >= self.config.syncThreshold.integerValue) {
+                    DDLogDebug(@"%@ Attempt to sync locations: %@ threshold: %@", TAG, locationsCount, self.config.syncThreshold);
+                    [self sync];
                 }
             }
-        }
-
-        if ([self.config hasValidSyncUrl]) {
-            NSNumber *locationsCount = [locationDAO getLocationsForSyncCount];
-            if (locationsCount && [locationsCount integerValue] >= self.config.syncThreshold.integerValue) {
-                DDLogDebug(@"%@ Attempt to sync locations: %@ threshold: %@", TAG, locationsCount, self.config.syncThreshold);
-                [self sync];
-            }
+        };
+        
+        if (hasConnectivity && [self.config hasValidUrl]) {
+            [self post:location toUrl:self.config.url withTemplate:self.config._template withHttpHeaders:self.config.httpHeaders completion:^(BOOL success) {
+                if (locationId != nil) {
+                    if (success) {
+                        [locationDAO deleteLocation:locationId error:nil];
+                    }
+                }
+                finishAdd();
+            }];
+        } else {
+            finishAdd();
         }
     });
 }
 
-- (BOOL) post:(MAURLocation*)location toUrl:(NSString*)url withTemplate:(id)locationTemplate withHttpHeaders:(NSMutableDictionary*)httpHeaders error:(NSError * __autoreleasing *)outError;
+- (void)post:(MAURLocation*)location
+       toUrl:(NSString*)url
+withTemplate:(id)locationTemplate
+withHttpHeaders:(NSMutableDictionary*)httpHeaders
+  completion:(void (^ _Nonnull)(BOOL success))completion
 {
     NSArray *locations = [[NSArray alloc] initWithObjects:[location toResultFromTemplate:locationTemplate], nil];
-    //    NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData: data options: NSJSONReadingMutableContainers error: &e];
-    NSData *data = [NSJSONSerialization dataWithJSONObject:locations options:0 error:outError];
+    NSError *serializationError = nil;
+    NSData *data = [NSJSONSerialization dataWithJSONObject:locations options:0 error:&serializationError];
     if (!data) {
-        return NO;
+        DDLogError(@"%@ Error while serializing location payload %@", TAG, [serializationError localizedDescription]);
+        completion(NO);
+        return;
     }
     
     NSString *jsonStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
@@ -133,57 +151,57 @@ static MAURLocationTransform s_locationTransform = nil;
         }
     }
 
-    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:self.config.useWebViewCookieStore timeout:2.0];
+    [MAURCookieBridge applyCookiesToRequest:request useWebViewCookieStore:self.config.useWebViewCookieStore completion:^{
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            [request setHTTPBody:[jsonStr dataUsingEncoding:NSUTF8StringEncoding]];
 
-    [request setHTTPBody:[jsonStr dataUsingEncoding:NSUTF8StringEncoding]];
-    
-    // Create url connection and fire request
-    NSHTTPURLResponse* urlResponse = nil;
-    [NSURLConnection sendSynchronousRequest:request returningResponse:&urlResponse error:outError];
+            NSError *requestError = nil;
+            NSHTTPURLResponse* urlResponse = nil;
+            [NSURLConnection sendSynchronousRequest:request returningResponse:&urlResponse error:&requestError];
 
-    if (urlResponse != nil) {
-        [MAURCookieBridge persistCookiesFromResponse:urlResponse forURL:request.URL useWebViewCookieStore:self.config.useWebViewCookieStore];
-    }
-    
-    NSInteger statusCode = urlResponse.statusCode;
-    
-    if (statusCode == 285)
-    {
-        // Okay, but we don't need to continue sending these
-        
-        DDLogDebug(@"Location was sent to the server, and received an \"HTTP 285 Updated Not Required\"");
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (_delegate && [_delegate respondsToSelector:@selector(postLocationTaskRequestedAbortUpdates:)])
-            {
-                [_delegate postLocationTaskRequestedAbortUpdates:self];
-            }
+            [MAURCookieBridge persistCookiesFromResponse:urlResponse forURL:request.URL useWebViewCookieStore:self.config.useWebViewCookieStore completion:^{
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+                    NSInteger statusCode = urlResponse.statusCode;
+
+                    if (statusCode == 285)
+                    {
+                        DDLogDebug(@"Location was sent to the server, and received an \"HTTP 285 Updated Not Required\"");
+
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (_delegate && [_delegate respondsToSelector:@selector(postLocationTaskRequestedAbortUpdates:)])
+                            {
+                                [_delegate postLocationTaskRequestedAbortUpdates:self];
+                            }
+                        });
+                    }
+
+                    if (statusCode == 401)
+                    {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (_delegate && [_delegate respondsToSelector:@selector(postLocationTaskHttpAuthorizationUpdates:)])
+                            {
+                                [_delegate postLocationTaskHttpAuthorizationUpdates:self];
+                            }
+                        });
+                    }
+
+                    if (statusCode >= 200 && statusCode < 300)
+                    {
+                        completion(YES);
+                        return;
+                    }
+
+                    if (requestError == nil) {
+                        DDLogDebug(@"%@ Server error while posting locations responseCode: %ld", TAG, (long)statusCode);
+                    } else {
+                        DDLogError(@"%@ Error while posting locations %@", TAG, [requestError localizedDescription]);
+                    }
+
+                    completion(NO);
+                });
+            }];
         });
-    }
-
-    if (statusCode == 401)
-    {   
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (_delegate && [_delegate respondsToSelector:@selector(postLocationTaskHttpAuthorizationUpdates:)])
-            {
-                [_delegate postLocationTaskHttpAuthorizationUpdates:self];
-            }
-        });
-    }
-    
-    // All 2xx statuses are okay
-    if (statusCode >= 200 && statusCode < 300)
-    {
-        return YES;
-    }
-    
-    if (*outError == nil) {
-        DDLogDebug(@"%@ Server error while posting locations responseCode: %ld", TAG, (long)statusCode);
-    } else {
-        DDLogError(@"%@ Error while posting locations %@", TAG, [*outError localizedDescription]);
-    }
-
-    return NO;
+    }];
 }
 
 - (void) sync
