@@ -12,10 +12,20 @@ NSString * const MAURReminderRequestIdentifier = @"maur_bg_still_tracking_remind
 NSString * const MAURReminderActionStopIdentifier = @"maur_bg_still_tracking_reminder_stop";
 NSString * const MAURReminderActionSnoozeIdentifier = @"maur_bg_still_tracking_reminder_snooze";
 NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_reminder_mute";
+NSString * const MAURReminderErrorDomain = @"com.marianhello.bgloc.reminder";
 
 @interface MAURReminderHelper ()
 
 @property (nonatomic, strong) UILocalNotification *legacyReminder;
+
+- (NSTimeInterval)resolveReminderIntervalSecondsFromConfig:(MAURConfig *)config;
+- (NSTimeInterval)resolveSnoozeIntervalSecondsFromConfig:(MAURConfig *)config;
+- (NSTimeInterval)resolveIntervalSecondsFromMinutes:(NSNumber *)minutes;
+- (void)requestAuthorizationIfNeededWithCompletion:(void (^)(BOOL granted, NSError *error))completion;
+- (void)handleAuthorizationSettings:(UNNotificationSettings *)settings completion:(void (^)(BOOL granted, NSError *error))completion API_AVAILABLE(ios(10.0));
+- (NSError *)reminderErrorWithCode:(MAURReminderErrorCode)code description:(NSString *)description;
+- (void)scheduleReminderRequestWithConfig:(MAURConfig *)config interval:(NSTimeInterval)interval completion:(void (^)(BOOL scheduled, NSError *error))completion API_AVAILABLE(ios(10.0));
+- (void)scheduleLegacyReminderWithConfig:(MAURConfig *)config interval:(NSTimeInterval)interval;
 
 @end
 
@@ -33,43 +43,73 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
 
 - (void)scheduleReminderWithConfig:(MAURConfig *)config
 {
-    NSTimeInterval interval = [self resolveIntervalSecondsFromMinutes:config.stillTrackingReminderIntervalMinutes fallback:nil];
+    [self scheduleReminderWithConfig:config completion:nil];
+}
+
+- (void)scheduleReminderWithConfig:(MAURConfig *)config completion:(void (^)(BOOL scheduled, NSError *error))completion
+{
+    NSTimeInterval interval = [self resolveReminderIntervalSecondsFromConfig:config];
     if (interval <= 0) {
         [self cancelReminder];
+        if (completion != nil) {
+            completion(NO, nil);
+        }
         return;
     }
 
     if (@available(iOS 10.0, *)) {
-        [self requestAuthorizationIfNeededWithCompletion:^(BOOL granted) {
+        [self requestAuthorizationIfNeededWithCompletion:^(BOOL granted, NSError *error) {
             if (!granted) {
+                if (completion != nil) {
+                    completion(NO, error);
+                }
                 return;
             }
-            [self ensureNotificationCategoriesWithConfig:config];
-            [self scheduleReminderRequestWithConfig:config interval:interval];
+            [self ensureNotificationCategoriesWithConfig:config completion:^{
+                [self scheduleReminderRequestWithConfig:config interval:interval completion:completion];
+            }];
         }];
     } else {
         [self scheduleLegacyReminderWithConfig:config interval:interval];
+        if (completion != nil) {
+            completion(YES, nil);
+        }
     }
 }
 
 - (void)scheduleSnoozeWithConfig:(MAURConfig *)config
 {
-    NSTimeInterval interval = [self resolveIntervalSecondsFromMinutes:config.stillTrackingReminderSnoozeIntervalMinutes fallback:config.stillTrackingReminderIntervalMinutes];
+    [self scheduleSnoozeWithConfig:config completion:nil];
+}
+
+- (void)scheduleSnoozeWithConfig:(MAURConfig *)config completion:(void (^)(BOOL scheduled, NSError *error))completion
+{
+    NSTimeInterval interval = [self resolveSnoozeIntervalSecondsFromConfig:config];
     if (interval <= 0) {
         [self cancelReminder];
+        if (completion != nil) {
+            completion(NO, nil);
+        }
         return;
     }
 
     if (@available(iOS 10.0, *)) {
-        [self requestAuthorizationIfNeededWithCompletion:^(BOOL granted) {
+        [self requestAuthorizationIfNeededWithCompletion:^(BOOL granted, NSError *error) {
             if (!granted) {
+                if (completion != nil) {
+                    completion(NO, error);
+                }
                 return;
             }
-            [self ensureNotificationCategoriesWithConfig:config];
-            [self scheduleReminderRequestWithConfig:config interval:interval];
+            [self ensureNotificationCategoriesWithConfig:config completion:^{
+                [self scheduleReminderRequestWithConfig:config interval:interval completion:completion];
+            }];
         }];
     } else {
         [self scheduleLegacyReminderWithConfig:config interval:interval];
+        if (completion != nil) {
+            completion(YES, nil);
+        }
     }
 }
 
@@ -112,6 +152,11 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
 
 - (void)ensureNotificationCategoriesWithConfig:(MAURConfig *)config
 {
+    [self ensureNotificationCategoriesWithConfig:config completion:nil];
+}
+
+- (void)ensureNotificationCategoriesWithConfig:(MAURConfig *)config completion:(dispatch_block_t)completion
+{
     if (@available(iOS 10.0, *)) {
         UNNotificationAction *stopAction = [UNNotificationAction actionWithIdentifier:MAURReminderActionStopIdentifier title:[self reminderStopLabelFromConfig:config] options:UNNotificationActionOptionForeground];
         UNNotificationAction *snoozeAction = [UNNotificationAction actionWithIdentifier:MAURReminderActionSnoozeIdentifier title:[self reminderSnoozeLabelFromConfig:config] options:UNNotificationActionOptionNone];
@@ -126,9 +171,19 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
             if (mutable == nil) {
                 mutable = [[NSMutableSet alloc] init];
             }
+            for (UNNotificationCategory *existingCategory in categories) {
+                if ([existingCategory.identifier isEqualToString:MAURReminderCategoryIdentifier]) {
+                    [mutable removeObject:existingCategory];
+                }
+            }
             [mutable addObject:category];
             [center setNotificationCategories:mutable];
+            if (completion != nil) {
+                completion();
+            }
         }];
+    } else if (completion != nil) {
+        completion();
     }
 }
 
@@ -163,9 +218,33 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
 
 #pragma mark - Helpers
 
-- (NSTimeInterval)resolveIntervalSecondsFromMinutes:(NSNumber *)minutes fallback:(NSNumber *)fallbackMinutes
+- (NSTimeInterval)resolveReminderIntervalSecondsFromConfig:(MAURConfig *)config
 {
-    NSNumber *value = minutes != nil ? minutes : fallbackMinutes;
+    return [self resolveIntervalSecondsFromMinutes:config.stillTrackingReminderIntervalMinutes];
+}
+
+- (NSTimeInterval)resolveSnoozeIntervalSecondsFromConfig:(MAURConfig *)config
+{
+    if (config.stillTrackingReminderSnoozeIntervalMinutes != nil) {
+        return [self resolveIntervalSecondsFromMinutes:config.stillTrackingReminderSnoozeIntervalMinutes];
+    }
+
+    if (config.stillTrackingReminderIntervalMinutes == nil) {
+        return 0;
+    }
+
+    NSInteger reminderIntervalMinutes = [config.stillTrackingReminderIntervalMinutes integerValue];
+    if (reminderIntervalMinutes <= 0) {
+        return 0;
+    }
+
+    NSInteger derivedSnoozeMinutes = MAX((NSInteger)1, (reminderIntervalMinutes + 3) / 4);
+    return [self resolveIntervalSecondsFromMinutes:@(derivedSnoozeMinutes)];
+}
+
+- (NSTimeInterval)resolveIntervalSecondsFromMinutes:(NSNumber *)minutes
+{
+    NSNumber *value = minutes;
     if (value == nil) {
         return 0;
     }
@@ -214,39 +293,73 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
     return @"Mute";
 }
 
-- (void)requestAuthorizationIfNeededWithCompletion:(void (^)(BOOL granted))completion
+- (void)requestAuthorizationIfNeededWithCompletion:(void (^)(BOOL granted, NSError *error))completion
 {
     if (@available(iOS 10.0, *)) {
         UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
         [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull settings) {
             if (settings.authorizationStatus == UNAuthorizationStatusNotDetermined) {
                 [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound) completionHandler:^(BOOL granted, NSError * _Nullable error) {
-                    if (completion) {
-                        completion(granted);
+                    if (error != nil) {
+                        NSLog(@"MAURReminderHelper: notification authorization request failed: %@", error);
+                        if (completion != nil) {
+                            completion(NO, error);
+                        }
+                        return;
                     }
+                    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull updatedSettings) {
+                        [self handleAuthorizationSettings:updatedSettings completion:completion];
+                    }];
                 }];
             } else {
-                if (completion) {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
-                    if (@available(iOS 12.0, *)) {
-                        completion(settings.authorizationStatus == UNAuthorizationStatusAuthorized || settings.authorizationStatus == UNAuthorizationStatusProvisional);
-                    } else {
-                        completion(settings.authorizationStatus == UNAuthorizationStatusAuthorized);
-                    }
-#else
-                    completion(settings.authorizationStatus == UNAuthorizationStatusAuthorized);
-#endif
-                }
+                [self handleAuthorizationSettings:settings completion:completion];
             }
         }];
     } else {
-        if (completion) {
-            completion(YES);
+        if (completion != nil) {
+            completion(YES, nil);
         }
     }
 }
 
-- (void)scheduleReminderRequestWithConfig:(MAURConfig *)config interval:(NSTimeInterval)interval API_AVAILABLE(ios(10.0))
+- (void)handleAuthorizationSettings:(UNNotificationSettings *)settings completion:(void (^)(BOOL granted, NSError *error))completion API_AVAILABLE(ios(10.0))
+{
+    if (completion == nil) {
+        return;
+    }
+
+    BOOL isAuthorized = settings.authorizationStatus == UNAuthorizationStatusAuthorized;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
+    if (@available(iOS 12.0, *)) {
+        isAuthorized = isAuthorized || settings.authorizationStatus == UNAuthorizationStatusProvisional;
+    }
+#endif
+
+    if (!isAuthorized) {
+        NSString *message = @"Reminder notification permission was denied on iOS; skipping reminder schedule.";
+        NSLog(@"MAURReminderHelper: %@", message);
+        completion(NO, [self reminderErrorWithCode:MAURReminderErrorCodePermissionDenied description:message]);
+        return;
+    }
+
+    if (settings.alertSetting != UNNotificationSettingEnabled && settings.alertSetting != UNNotificationSettingNotSupported) {
+        NSString *message = @"Reminder notification alerts are disabled on iOS; reminder would not be visible.";
+        NSLog(@"MAURReminderHelper: %@", message);
+        completion(NO, [self reminderErrorWithCode:MAURReminderErrorCodeAlertsDisabled description:message]);
+        return;
+    }
+
+    completion(YES, nil);
+}
+
+- (NSError *)reminderErrorWithCode:(MAURReminderErrorCode)code description:(NSString *)description
+{
+    return [NSError errorWithDomain:MAURReminderErrorDomain code:code userInfo:@{
+        NSLocalizedDescriptionKey: description
+    }];
+}
+
+- (void)scheduleReminderRequestWithConfig:(MAURConfig *)config interval:(NSTimeInterval)interval completion:(void (^)(BOOL scheduled, NSError *error))completion API_AVAILABLE(ios(10.0))
 {
     UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
 
@@ -264,6 +377,16 @@ NSString * const MAURReminderActionMuteIdentifier = @"maur_bg_still_tracking_rem
     [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
         if (error != nil) {
             NSLog(@"MAURReminderHelper: failed to schedule reminder: %@", error);
+            if (completion != nil) {
+                NSString *message = [NSString stringWithFormat:@"Failed to schedule iOS reminder notification: %@", error.localizedDescription];
+                completion(NO, [self reminderErrorWithCode:MAURReminderErrorCodeScheduleFailed description:message]);
+            }
+            return;
+        }
+
+        NSLog(@"MAURReminderHelper: scheduled reminder in %.0f seconds", interval);
+        if (completion != nil) {
+            completion(YES, nil);
         }
     }];
 }
