@@ -109,6 +109,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     /** notification id */
     private static int NOTIFICATION_ID = 1;
+    private static final String FOREGROUND_SERVICE_START_NOT_ALLOWED_EXCEPTION =
+            "android.app.ForegroundServiceStartNotAllowedException";
 
     private ResourceResolver mResolver;
     private Config mConfig;
@@ -402,6 +404,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             }
         });
 
+        if (!sIsRunning) {
+            return;
+        }
+
         ReminderHelper.schedule(this, mConfig);
 
         Bundle bundle = new Bundle();
@@ -450,18 +456,36 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     config.getSmallNotificationIcon(),
                     config.getNotificationIconColor());
 
-            if (mProvider != null) {
-                mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
-                        LocationProvider.FOREGROUND_MODE);
-            }
             try {
                 super.startForeground(NOTIFICATION_ID, notification);
                 mIsInForeground = true;
+                if (mProvider != null) {
+                    mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
+                            LocationProvider.FOREGROUND_MODE);
+                }
             } catch (SecurityException e) {
+                mIsInForeground = false;
                 logger.error("Failed to start foreground service", e);
                 handlePermissionDenied(e.getMessage());
+            } catch (RuntimeException e) {
+                handleStartForegroundRuntimeException(e);
             }
         }
+    }
+
+    protected void handleStartForegroundRuntimeException(RuntimeException e) {
+        mIsInForeground = false;
+        if (isForegroundServiceStartNotAllowedException(e)) {
+            logger.warn("Foreground service start was not allowed by Android", e);
+            stop();
+            return;
+        }
+        throw e;
+    }
+
+    protected boolean isForegroundServiceStartNotAllowedException(RuntimeException e) {
+        return Build.VERSION.SDK_INT >= 31
+                && FOREGROUND_SERVICE_START_NOT_ALLOWED_EXCEPTION.equals(e.getClass().getName());
     }
 
     @Override
