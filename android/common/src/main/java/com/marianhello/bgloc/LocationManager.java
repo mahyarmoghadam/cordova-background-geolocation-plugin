@@ -16,12 +16,26 @@ import com.intentfilter.androidpermissions.models.DeniedPermissions;
 
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LocationManager {
     private Context mContext;
     private static LocationManager mLocationManager;
+    private static final ExecutorService sCurrentLocationExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+        private final AtomicInteger mThreadNumber = new AtomicInteger(1);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread thread = new Thread(r, "LocationManager.CurrentLocation-" + mThreadNumber.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+        }
+    });
 
     public static final String[] PERMISSIONS = {
             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -44,18 +58,25 @@ public class LocationManager {
     public Promise<Location> getCurrentLocation(final int timeout, final long maximumAge, final boolean enableHighAccuracy) {
         final Promise<Location> promise = Promises.promise();
 
-        PermissionManager permissionManager = PermissionManager.getInstance(mContext);
-        permissionManager.checkPermissions(Arrays.asList(PERMISSIONS), new PermissionManager.PermissionRequestListener() {
+        checkPermissions(new PermissionManager.PermissionRequestListener() {
             @Override
             public void onPermissionGranted() {
-                try {
-                    Location currentLocation = getCurrentLocationNoCheck(timeout, maximumAge, enableHighAccuracy);
-                    promise.set(currentLocation);
-                } catch (TimeoutException e) {
-                    promise.setError(e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+                executeCurrentLocationLookup(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Location currentLocation = getCurrentLocationNoCheck(timeout, maximumAge, enableHighAccuracy);
+                            promise.set(currentLocation);
+                        } catch (TimeoutException e) {
+                            promise.setError(e);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            promise.setError(e);
+                        } catch (RuntimeException e) {
+                            promise.setError(e);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -65,6 +86,15 @@ public class LocationManager {
         });
 
         return promise;
+    }
+
+    protected void checkPermissions(PermissionManager.PermissionRequestListener listener) {
+        PermissionManager permissionManager = PermissionManager.getInstance(mContext);
+        permissionManager.checkPermissions(Arrays.asList(PERMISSIONS), listener);
+    }
+
+    protected void executeCurrentLocationLookup(Runnable lookupRunnable) {
+        sCurrentLocationExecutor.execute(lookupRunnable);
     }
 
     /**
@@ -90,6 +120,10 @@ public class LocationManager {
         Location lastKnownNetworkLocation = locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER);
         if (lastKnownNetworkLocation != null && lastKnownNetworkLocation.getTime() >= minLocationTime) {
             return lastKnownNetworkLocation;
+        }
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("Blocking current location lookup cannot run on the main thread");
         }
 
         Criteria criteria = new Criteria();

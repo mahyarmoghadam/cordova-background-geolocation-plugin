@@ -3,16 +3,26 @@ package com.marianhello.bgloc.service;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Process;
 
 import com.marianhello.bgloc.Config;
+import com.marianhello.logging.LoggerManager;
 
 public class LocationServiceProxy implements LocationService, LocationServiceInfo {
+    private static final Object sCommandHandlerLock = new Object();
+    private static Handler sCommandHandler;
+
     private final Context mContext;
     private final LocationServiceIntentBuilder mIntentBuilder;
+    private final org.slf4j.Logger logger;
 
     public LocationServiceProxy(Context context) {
-        mContext = context;
-        mIntentBuilder = new LocationServiceIntentBuilder(context);
+        Context applicationContext = context.getApplicationContext();
+        mContext = applicationContext != null ? applicationContext : context;
+        mIntentBuilder = new LocationServiceIntentBuilder(mContext);
+        logger = LoggerManager.getLogger(LocationServiceProxy.class);
     }
 
     @Override
@@ -22,12 +32,10 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
         // https://github.com/mauron85/react-native-background-geolocation/issues/360
         // https://github.com/mauron85/cordova-plugin-background-geolocation/issues/551
         // https://github.com/mauron85/cordova-plugin-background-geolocation/issues/552
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder
                 .setCommand(CommandId.CONFIGURE, config)
                 .build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
@@ -40,22 +48,18 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
 
     @Override
     public void startHeadlessTask() {
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder
                 .setCommand(CommandId.START_HEADLESS_TASK)
                 .build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
     public void stopHeadlessTask() {
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder
                 .setCommand(CommandId.STOP_HEADLESS_TASK)
                 .build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
@@ -73,36 +77,39 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
 
     @Override
     public void startForegroundService() {
-        Intent intent = mIntentBuilder.setCommand(CommandId.START_FOREGROUND_SERVICE).build();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mContext.startForegroundService(intent);
-        } else {
-            mContext.startService(intent);
-        }
+        final Intent intent = mIntentBuilder.setCommand(CommandId.START_FOREGROUND_SERVICE).build();
+        postServiceCommand(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        mContext.startForegroundService(intent);
+                    } else {
+                        mContext.startService(intent);
+                    }
+                } catch (RuntimeException e) {
+                    logger.error("Failed to start foreground service", e);
+                }
+            }
+        });
     }
 
     @Override
     public void stop() {
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder.setCommand(CommandId.STOP).build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
     public void stopForeground() {
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder.setCommand(CommandId.STOP_FOREGROUND).build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
     public void startForeground() {
-        if (!isStarted()) { return; }
-
         Intent intent = mIntentBuilder.setCommand(CommandId.START_FOREGROUND).build();
-        executeIntentCommand(intent);
+        executeIntentCommand(intent, true);
     }
 
     @Override
@@ -124,7 +131,39 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
         return serviceInfo.isBound();
     }
 
-    private void executeIntentCommand(Intent intent) {
-        mContext.startService(intent);
+    private void executeIntentCommand(final Intent intent) {
+        executeIntentCommand(intent, false);
+    }
+
+    private void executeIntentCommand(final Intent intent, final boolean requireStarted) {
+        postServiceCommand(new Runnable() {
+            @Override
+            public void run() {
+                if (requireStarted && !isStarted()) { return; }
+
+                try {
+                    mContext.startService(intent);
+                } catch (RuntimeException e) {
+                    logger.error("Failed to start service command", e);
+                }
+            }
+        });
+    }
+
+    private static void postServiceCommand(Runnable command) {
+        getCommandHandler().post(command);
+    }
+
+    private static Handler getCommandHandler() {
+        synchronized (sCommandHandlerLock) {
+            if (sCommandHandler == null) {
+                HandlerThread commandThread = new HandlerThread(
+                        "LocationServiceProxy.Commands",
+                        Process.THREAD_PRIORITY_BACKGROUND);
+                commandThread.start();
+                sCommandHandler = new Handler(commandThread.getLooper());
+            }
+            return sCommandHandler;
+        }
     }
 }

@@ -121,7 +121,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private final IBinder mBinder = new LocalBinder();
     private HandlerThread mHandlerThread;
-    private ServiceHandler mServiceHandler;
+    private Handler mServiceHandler;
     private LocationDAO mLocationDAO;
     private PostLocationTask mPostLocationTask;
     private String mHeadlessTaskRunnerClass;
@@ -294,32 +294,37 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            // when service was killed and restarted we will restart service
-            start();
-            return START_STICKY;
-        }
+    public int onStartCommand(final Intent intent, int flags, final int startId) {
+        mServiceHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (intent == null) {
+                    // when service was killed and restarted we will restart service
+                    start();
+                    return;
+                }
 
-        boolean containsCommand = containsCommand(intent);
-        logger.debug(
-            String.format(Locale.US, "Service in [%s] state. cmdId: [%s]. startId: [%d]",
-                        sIsRunning ? "STARTED" : "NOT STARTED",
-                        containsCommand ? getCommand(intent).getId() : "N/A",
-                        startId)
-        );
+                boolean hasCommand = containsCommand(intent);
+                logger.debug(
+                    String.format(Locale.US, "Service in [%s] state. cmdId: [%s]. startId: [%d]",
+                                sIsRunning ? "STARTED" : "NOT STARTED",
+                                hasCommand ? getCommand(intent).getId() : "N/A",
+                                startId)
+                );
 
-        if (containsCommand) {
-            LocationServiceIntentBuilder.Command cmd = getCommand(intent);
-            processCommand(cmd.getId(), cmd.getArgument());
-        } else {
-            // Could be a BOOT-event, or the OS just randomly restarted the service...
-            startForegroundService();
-        }
+                if (hasCommand) {
+                    LocationServiceIntentBuilder.Command cmd = getCommand(intent);
+                    processCommand(cmd.getId(), cmd.getArgument());
+                } else {
+                    // Could be a BOOT-event, or the OS just randomly restarted the service...
+                    startForegroundService();
+                }
 
-        if (containsMessage(intent)) {
-            processMessage(getMessage(intent));
-        }
+                if (containsMessage(intent)) {
+                    processMessage(getMessage(intent));
+                }
+            }
+        });
 
         return START_STICKY;
     }
