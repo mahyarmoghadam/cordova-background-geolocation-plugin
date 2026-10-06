@@ -23,6 +23,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.provider.AbstractLocationProvider;
@@ -52,6 +53,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
     private static final long STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE   = 1 * 1000 * 60;    // 1 minute.
     private static final int MAX_STATIONARY_ACQUISITION_ATTEMPTS = 5;
     private static final int MAX_SPEED_ACQUISITION_ATTEMPTS = 3;
+    private static final long MAX_ACQUISITION_LOCATION_AGE                      = 60 * 1000;        // 1 minute.
 
     private Boolean isMoving = false;
     private Boolean isAcquiringStationaryLocation = false;
@@ -95,29 +97,25 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                 ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE
                     : PendingIntent.FLAG_CANCEL_CURRENT;
 
-        Intent stationaryAlarmIntent = new Intent(mContext, StationaryAlarmReceiver.class);
-        stationaryAlarmIntent.setAction(STATIONARY_ALARM_ACTION);
+        Intent stationaryAlarmIntent = createProviderIntent(STATIONARY_ALARM_ACTION);
 
         // Stop-detection PI
         stationaryAlarmPI = PendingIntent.getBroadcast(mContext, 0, stationaryAlarmIntent, zeroFlag);
         registerReceiver(stationaryAlarmReceiver, new IntentFilter(STATIONARY_ALARM_ACTION));
 
-        Intent stationaryRegionIntent = new Intent(mContext, StationaryRegionReceiver.class);
-        stationaryRegionIntent.setAction(STATIONARY_REGION_ACTION);
+        Intent stationaryRegionIntent = createProviderIntent(STATIONARY_REGION_ACTION);
 
         // Stationary region PI
         stationaryRegionPI = PendingIntent.getBroadcast(mContext, 0, stationaryRegionIntent, cancelCurrentFlag);
         registerReceiver(stationaryRegionReceiver, new IntentFilter(STATIONARY_REGION_ACTION));
 
-        Intent stationaryLocationMonitorIntent = new Intent(mContext, StationaryLocationMonitorReceiver.class);
-        stationaryLocationMonitorIntent.setAction(STATIONARY_LOCATION_MONITOR_ACTION);
+        Intent stationaryLocationMonitorIntent = createProviderIntent(STATIONARY_LOCATION_MONITOR_ACTION);
 
         // Stationary location monitor PI
         stationaryLocationPollingPI = PendingIntent.getBroadcast(mContext, 0, stationaryLocationMonitorIntent, zeroFlag);
         registerReceiver(stationaryLocationMonitorReceiver, new IntentFilter(STATIONARY_LOCATION_MONITOR_ACTION));
 
-        Intent singleLocationUpdateIntent = new Intent(mContext, SingleUpdateReceiver.class);
-        singleLocationUpdateIntent.setAction(SINGLE_LOCATION_UPDATE_ACTION);
+        Intent singleLocationUpdateIntent = createProviderIntent(SINGLE_LOCATION_UPDATE_ACTION);
 
         // One-shot PI (TODO currently unused)
         singleUpdatePI = PendingIntent.getBroadcast(mContext, 0, singleLocationUpdateIntent, cancelCurrentFlag);
@@ -129,6 +127,20 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         criteria.setBearingRequired(false);
         criteria.setSpeedRequired(true);
         criteria.setCostAllowed(true);
+    }
+
+    /**
+     * PendingIntents must not target the inner receiver classes explicitly: those receivers are only
+     * registered at runtime (not in the manifest), so an explicit-component broadcast is never delivered.
+     */
+    private Intent createProviderIntent(String action) {
+        Intent intent = new Intent(action);
+        intent.setPackage(mContext.getPackageName());
+        return intent;
+    }
+
+    private long getLocationAgeMillis(Location location) {
+        return (SystemClock.elapsedRealtimeNanos() - location.getElapsedRealtimeNanos()) / 1000000;
     }
 
     @Override
@@ -152,6 +164,8 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         try {
             locationManager.removeUpdates(this);
             locationManager.removeProximityAlert(stationaryRegionPI);
+            alarmManager.cancel(stationaryAlarmPI);
+            alarmManager.cancel(stationaryLocationPollingPI);
         } catch (SecurityException e) {
             //noop
         } finally {
@@ -172,8 +186,14 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
     public void onConfigure(Config config) {
         super.onConfigure(config);
         if (isStarted) {
+            // onStart() always begins in stationary mode; keep moving pace across reconfigure,
+            // otherwise a running foreground service never gets CMD_SWITCH_MODE again.
+            boolean wasMoving = isMoving;
             onStop();
             onStart();
+            if (wasMoving) {
+                setPace(true);
+            }
         }
     }
 
@@ -209,8 +229,12 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                 // setPace can be called while moving, after distanceFilter has been recalculated.  We don't want to re-acquire velocity in this case.
                 if (!wasMoving) {
                     isAcquiringSpeed = true;
+                    // Arm stop-detection right away, so we fall back to stationary mode
+                    // even if no accurate moving fix ever resets the alarm.
+                    resetStationaryAlarm();
                 }
             } else {
+                alarmManager.cancel(stationaryAlarmPI);
                 isAcquiringStationaryLocation = true;
             }
 
@@ -319,6 +343,12 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         }
 
         showDebugToast( "mv:" + isMoving + ",acy:" + location.getAccuracy() + ",v:" + location.getSpeed() + ",df:" + scaledDistanceFilter);
+
+        // While sampling, providers immediately deliver their cached last-known fix, which can be minutes old.
+        if ((isAcquiringStationaryLocation || isAcquiringSpeed) && getLocationAgeMillis(location) > MAX_ACQUISITION_LOCATION_AGE) {
+            logger.debug("Skipping stale location while acquiring, age={}ms", getLocationAgeMillis(location));
+            return;
+        }
 
         if (isAcquiringStationaryLocation) {
             if (stationaryLocation == null || stationaryLocation.getAccuracy() > location.getAccuracy()) {
