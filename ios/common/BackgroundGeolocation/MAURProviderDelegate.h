@@ -47,6 +47,10 @@ typedef NS_ENUM(NSInteger, MAUROperationalMode) {
 - (void) onHttpAuthorization;
 - (void) onError:(NSError*)error;
 
+@optional
+/** Called when the facade enters (YES) or leaves (NO) schedule standby. */
+- (void) onTrackingStandbyChanged:(BOOL)standby;
+
 @end
 
 #endif /* MAURProviderDelegate_h */

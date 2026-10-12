@@ -38,5 +38,6 @@
 - (void) forceSync:(CDVInvokedUrlCommand*)command;
 - (void) addEventListener:(CDVInvokedUrlCommand*)command;
 - (void) removeEventListener:(CDVInvokedUrlCommand*)command;
+- (void) setTrackingWindows:(CDVInvokedUrlCommand*)command;
 
 @end

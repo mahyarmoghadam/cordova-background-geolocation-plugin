@@ -28,6 +28,7 @@
 #import "MAURUncaughtExceptionLogger.h"
 #import "MAURPostLocationTask.h"
 #import "INTULocationManager.h"
+#import "MAURTrackingSchedule.h"
 
 // error messages
 #define CONFIGURE_ERROR_MSG             "Configuration error."
@@ -45,11 +46,24 @@ static NSString * const TAG = @"BgGeo";
 
 FMDBLogger *sqliteLogger;
 
-@interface MAURBackgroundGeolocationFacade () <MAURProviderDelegate, MAURPostLocationTaskDelegate>
+@interface MAURBackgroundGeolocationFacade () <MAURProviderDelegate, MAURPostLocationTaskDelegate, CLLocationManagerDelegate>
+- (void) enterStandbyStoppingProvider:(BOOL)stopProvider notify:(BOOL)notify;
+- (void) leaveStandby;
+- (void) stopStandbyMonitoring;
+- (void) scheduleTimerForDate:(NSDate*)fireDate;
+- (void) onScheduleTimer:(NSTimer*)timer;
+- (BOOL) dropIfOutsideTrackingWindow;
+- (void) runOnMainThread:(dispatch_block_t)completionHandle;
 @end
 
 @implementation MAURBackgroundGeolocationFacade {
     BOOL isStarted;
+    // Schedule standby: armed (isStarted == YES) but outside a tracking window.
+    // Only standbyManager (significant-change monitoring) runs; its locations are discarded.
+    BOOL isStandby;
+    CLLocationManager *standbyManager;
+    NSTimer *scheduleTimer; // window end (tracking) or next window start (standby)
+    NSDate *lastResumeFailure;
     MAUROperationalMode operationMode;
     
     UILocalNotification *localNotification;
@@ -93,7 +107,8 @@ FMDBLogger *sqliteLogger;
     localNotification.timeZone = [NSTimeZone defaultTimeZone];
     
     isStarted = NO;
-    
+    isStandby = NO;
+
     return self;
 }
 
@@ -132,10 +147,11 @@ FMDBLogger *sqliteLogger;
         }];
     }
     
-    if (isStarted) {
+    // In schedule standby the provider stays off; the new config is applied when the next window starts.
+    if (isStarted && !isStandby) {
         // Note: CLLocationManager must be created on a thread with an active run loop (main thread)
         [self runOnMainThread:^{
-            
+
             // requesting new provider
             if (![currentConfig.locationProvider isEqual:_config.locationProvider]) {
                 [locationProvider onDestroy]; // destroy current provider
@@ -183,7 +199,13 @@ FMDBLogger *sqliteLogger;
     if (isStarted) {
         return NO;
     }
-    
+
+    if (![MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+        isStarted = YES; // armed; real tracking starts at the next window
+        [self enterStandbyStoppingProvider:NO notify:YES];
+        return YES;
+    }
+
     __block NSError *error = nil;
     MAURConfig *config = [self getConfig];
     
@@ -215,7 +237,9 @@ FMDBLogger *sqliteLogger;
         
         return NO;
     }
-    
+
+    [self scheduleTimerForDate:[MAURTrackingSchedule currentWindowEndAt:[NSDate date]]];
+
     return isStarted;
 }
 
@@ -225,11 +249,21 @@ FMDBLogger *sqliteLogger;
 - (BOOL) stop:(NSError * __autoreleasing *)outError
 {
     DDLogInfo(@"%@ #stop", TAG);
-    
+
+    [self stopStandbyMonitoring];
+    BOOL wasStandby = isStandby;
+    isStandby = NO;
+
     if (!isStarted) {
         return YES;
     }
-    
+
+    if (wasStandby) {
+        // Provider and uploads are already stopped in standby.
+        isStarted = NO;
+        return isStarted; // same return convention as the regular path below
+    }
+
     [postLocationTask stop];
     
     [self runOnMainThread:^{
@@ -249,7 +283,12 @@ FMDBLogger *sqliteLogger;
     operationMode = mode;
     
     if (!isStarted) return;
-    
+
+    // App foreground/background transitions are a cheap moment to re-apply the schedule
+    // (e.g. a window started or ended while the app was suspended).
+    [self evaluateSchedule];
+    if (isStandby || !isStarted) return; // provider is off in standby
+
     if ([self getConfig].isDebugging) {
         AudioServicesPlaySystemSound (operationMode  == MAURForegroundMode ? paceChangeYesSound : paceChangeNoSound);
     }
@@ -287,6 +326,172 @@ FMDBLogger *sqliteLogger;
 - (BOOL) isStarted
 {
     return isStarted;
+}
+
+#pragma mark - Tracking schedule standby
+
+- (BOOL) isStandby
+{
+    return isStandby;
+}
+
+- (void) evaluateSchedule
+{
+    // Serialize all standby transitions on the main thread (timer, CLLocationManager
+    // callbacks and the provider all live there). runOnMainThread executes inline when
+    // already on main and uses dispatch_sync otherwise, so this cannot self-deadlock.
+    [self runOnMainThread:^{
+        if (!isStarted) {
+            return;
+        }
+        BOOL allowed = [MAURTrackingSchedule isAllowedAt:[NSDate date]];
+        if (allowed && isStandby) {
+            [self leaveStandby];
+        } else if (!allowed && !isStandby) {
+            [self enterStandbyStoppingProvider:YES notify:YES];
+        } else if (allowed) {
+            [self scheduleTimerForDate:[MAURTrackingSchedule currentWindowEndAt:[NSDate date]]];
+        } else {
+            // still in standby: refresh the next-start timer (windows may have changed)
+            [self scheduleTimerForDate:[MAURTrackingSchedule nextWindowStartAfter:[NSDate date]]];
+        }
+    }];
+}
+
+/**
+ * Stops real tracking and uploads, drops the offline queue and arms low-power
+ * significant-change monitoring that only re-evaluates the schedule.
+ */
+- (void) enterStandbyStoppingProvider:(BOOL)stopProvider notify:(BOOL)notify
+{
+    DDLogInfo(@"%@ #enterStandby", TAG);
+    BOOL providerRunning = stopProvider && !isStandby && locationProvider != nil;
+    isStandby = YES;
+    [postLocationTask stop];
+    // Spec: nothing recorded in or before a window may be uploaded later from the offline queue.
+    [[MAURSQLiteLocationDAO sharedInstance] deleteAllLocations:nil];
+
+    NSDate *nextStart = [MAURTrackingSchedule nextWindowStartAfter:[NSDate date]];
+    [self runOnMainThread:^{
+        if (providerRunning) {
+            [locationProvider onStop:nil];
+        }
+        if (standbyManager == nil) {
+            standbyManager = [[CLLocationManager alloc] init];
+            standbyManager.delegate = self;
+        }
+        // Low-power wake-ups only; locations delivered here are never stored or posted.
+        [standbyManager startMonitoringSignificantLocationChanges];
+    }];
+    // Resumes on time while the app is alive; when suspended, the next
+    // significant-change wake-up (or app start) applies the schedule instead.
+    [self scheduleTimerForDate:nextStart];
+
+    if (notify && self.delegate && [self.delegate respondsToSelector:@selector(onTrackingStandbyChanged:)]) {
+        [self.delegate onTrackingStandbyChanged:YES];
+    }
+}
+
+- (void) leaveStandby
+{
+    DDLogInfo(@"%@ #leaveStandby", TAG);
+    [self stopStandbyMonitoring];
+    isStandby = NO;
+    isStarted = NO; // run the regular start path
+    NSError *error = nil;
+    BOOL started = [self start:&error];
+    if (!started || !isStarted) {
+        // Keep the schedule armed (mirrors Android): retry on the next wake-up.
+        DDLogError(@"%@ leaveStandby start failed: %@", TAG, error);
+        lastResumeFailure = [NSDate date];
+        isStarted = YES;
+        [self enterStandbyStoppingProvider:NO notify:NO];
+        return;
+    }
+    lastResumeFailure = nil;
+    if (isStandby) {
+        // start: found the window already over and re-entered standby itself.
+        return;
+    }
+    if (self.delegate && [self.delegate respondsToSelector:@selector(onTrackingStandbyChanged:)]) {
+        [self.delegate onTrackingStandbyChanged:NO];
+    }
+}
+
+- (void) stopStandbyMonitoring
+{
+    [self runOnMainThread:^{
+        [scheduleTimer invalidate];
+        scheduleTimer = nil;
+        [standbyManager stopMonitoringSignificantLocationChanges];
+    }];
+}
+
+/** (Re)arms the single schedule timer; nil date just cancels it. */
+- (void) scheduleTimerForDate:(NSDate*)fireDate
+{
+    [self runOnMainThread:^{
+        [scheduleTimer invalidate];
+        scheduleTimer = nil;
+        if (fireDate == nil) {
+            return;
+        }
+        scheduleTimer = [[NSTimer alloc] initWithFireDate:fireDate
+                                                 interval:0
+                                                   target:self
+                                                 selector:@selector(onScheduleTimer:)
+                                                 userInfo:nil
+                                                  repeats:NO];
+        [[NSRunLoop mainRunLoop] addTimer:scheduleTimer forMode:NSRunLoopCommonModes];
+    }];
+}
+
+- (void) onScheduleTimer:(NSTimer*)timer
+{
+    [self evaluateSchedule];
+}
+
+/**
+ * Late-callback guard for provider locations. Returns YES (drop: never stored, posted or
+ * emitted to JS) only outside a tracking window; inside a window it returns NO and the
+ * location is processed normally. Standby is entered asynchronously (never from inside the
+ * provider's own CLLocationManager callback) and only while the facade is started.
+ */
+- (BOOL) dropIfOutsideTrackingWindow
+{
+    if ([MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+        return NO;
+    }
+    DDLogInfo(@"%@ dropping location outside tracking window", TAG);
+    if (isStarted && !isStandby) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self evaluateSchedule];
+        });
+    }
+    return YES;
+}
+
+#pragma mark - CLLocationManagerDelegate (standby manager only)
+
+- (void) locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations
+{
+    if (manager != standbyManager) {
+        return;
+    }
+    // Starting significant-change monitoring delivers an initial fix right away; after a failed
+    // resume this would retry immediately in a loop, so retries from this path are throttled.
+    if (lastResumeFailure != nil && [[NSDate date] timeIntervalSinceDate:lastResumeFailure] < 60.0) {
+        return;
+    }
+    // Location is discarded; the wake-up is only used to re-apply the schedule.
+    [self evaluateSchedule];
+}
+
+- (void) locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
+{
+    if (manager == standbyManager) {
+        DDLogWarn(@"%@ standby manager error: %@", TAG, error);
+    }
 }
 
 - (MAURAbstractLocationProvider<MAURLocationProvider>*) getProvider:(int)providerId error:(NSError * __autoreleasing *)outError
@@ -494,6 +699,9 @@ FMDBLogger *sqliteLogger;
 - (void) onStationaryChanged:(MAURLocation *)location
 {
     DDLogDebug(@"%@ #onStationaryChanged", TAG);
+    if ([self dropIfOutsideTrackingWindow]) {
+        return;
+    }
     stationaryLocation = location;
     
     [postLocationTask add:location];
@@ -521,6 +729,9 @@ FMDBLogger *sqliteLogger;
 - (void) onLocationChanged:(MAURLocation *)location
 {
     DDLogDebug(@"%@ #onLocationChanged %@", TAG, location);
+    if ([self dropIfOutsideTrackingWindow]) {
+        return;
+    }
     stationaryLocation = nil;
     
     [postLocationTask add:location];

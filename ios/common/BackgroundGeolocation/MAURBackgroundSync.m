@@ -10,6 +10,7 @@
 #import "MAURBackgroundSync.h"
 #import "MAURSQLiteLocationDAO.h"
 #import "MAURCookieBridge.h"
+#import "MAURTrackingSchedule.h"
 
 @interface MAURBackgroundSync ()  <NSURLSessionDelegate, NSURLSessionTaskDelegate>
 {
@@ -65,6 +66,12 @@
 
 - (void) sync:(NSString * _Nonnull)url withTemplate:(id)locationTemplate withHttpHeaders:(NSMutableDictionary * _Nullable)httpHeaders useWebViewCookieStore:(BOOL)useWebViewCookieStore
 {
+    if (![MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+        // Outside a tracking window the offline queue is never uploaded.
+        DDLogInfo(@"MAURBackgroundSync skipping sync outside tracking window");
+        return;
+    }
+
     MAURSQLiteLocationDAO* locationDAO = [MAURSQLiteLocationDAO sharedInstance];
     NSArray *locations = [locationDAO getLocationsForSync];
     

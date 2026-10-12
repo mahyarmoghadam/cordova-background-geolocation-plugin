@@ -15,6 +15,7 @@
 #import "MAURBackgroundTaskManager.h"
 #import "MAURReminderHelper.h"
 #import "MAURSQLiteConfigurationDAO.h"
+#import "MAURTrackingSchedule.h"
 
 static NSString * const TAG = @"CDVBackgroundGeolocation";
 
@@ -148,7 +149,7 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 {
     NSLog(@"%@ #%@", TAG, @"snoozeReminder");
     [self.commandDelegate runInBackground:^{
-        if (![facade isStarted]) {
+        if (![facade isStarted] || [facade isStandby]) {
             CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
             return;
@@ -413,6 +414,31 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
     callbackId = nil;
 }
 
+/**
+ * Stores absolute tracking windows [{start, end}] (epoch ms) and re-applies them immediately.
+ */
+- (void) setTrackingWindows:(CDVInvokedUrlCommand*)command
+{
+    NSLog(@"%@ #%@", TAG, @"setTrackingWindows");
+    [self.commandDelegate runInBackground:^{
+        NSArray *windows = [command argumentAtIndex:0 withDefault:@[] andClass:[NSArray class]];
+        [MAURTrackingSchedule saveWindows:windows];
+        [facade evaluateSchedule];
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }];
+}
+
+- (void) onTrackingStandbyChanged:(BOOL)standby
+{
+    NSLog(@"%@ tracking standby: %d", TAG, standby);
+    if (standby) {
+        [reminderHelper cancelReminder];
+    } else {
+        [self rescheduleReminderIfTracking];
+    }
+}
+
 - (MAURConfig *)currentConfigInstance
 {
     if (config != nil) {
@@ -460,7 +486,7 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 
 - (void)rescheduleReminderIfTracking
 {
-    if ([facade isStarted]) {
+    if ([facade isStarted] && ![facade isStandby]) {
         MAURConfig *activeConfig = [self currentConfigInstance];
         [self scheduleReminderForConfig:activeConfig context:@"rescheduleReminderIfTracking"];
     } else {
@@ -644,7 +670,9 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
             [configDAO persistConfiguration:config];
             [facade start:nil];
             [facade switchMode:MAURBackgroundMode];
-            [self scheduleReminderForConfig:config context:@"launchOptionsLocation"];
+            if ([facade isStarted] && ![facade isStandby]) {
+                [self scheduleReminderForConfig:config context:@"launchOptionsLocation"];
+            }
         }
     }
 }
@@ -697,7 +725,7 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
                 [self dispatchReminderNotificationTap:payload];
                 [reminderHelper cancelReminder];
             } else if ([reminderHelper isSnoozeActionIdentifier:actionIdentifier]) {
-                if ([facade isStarted]) {
+                if ([facade isStarted] && ![facade isStandby]) {
                     [self ensureNotificationDelegateIfNeeded];
                     [reminderHelper scheduleSnoozeWithConfig:activeConfig completion:^(BOOL scheduled, NSError *scheduleError) {
                         if (scheduleError != nil) {

@@ -26,6 +26,9 @@
 - (BOOL) locationServicesEnabled;
 - (MAURLocationAuthorizationStatus) authorizationStatus;
 - (BOOL) isStarted;
+- (BOOL) isStandby;
+/** Re-applies the stored tracking windows (enter/leave standby, reschedule the end timer). */
+- (void) evaluateSchedule;
 - (void) showAppSettings;
 - (void) showLocationSettings;
 - (void) switchMode:(MAUROperationalMode)mode;

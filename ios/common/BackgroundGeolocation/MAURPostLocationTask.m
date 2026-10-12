@@ -15,6 +15,7 @@
 #import "MAURPostLocationTask.h"
 #import "MAURSQLiteLocationDAO.h"
 #import "MAURCookieBridge.h"
+#import "MAURTrackingSchedule.h"
 
 static NSString * const TAG = @"MAURPostLocationTask";
 
@@ -84,9 +85,15 @@ static MAURLocationTransform s_locationTransform = nil;
     // Take this variable on the main thread to be safe
     MAURLocationTransform locationTransform = s_locationTransform;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        
+
+        // Outside a tracking window nothing is stored or posted (checked after the async hop).
+        if (![MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+            DDLogInfo(@"%@ dropping location outside tracking window", TAG);
+            return;
+        }
+
         MAURLocation *location = inLocation;
-        
+
         if (locationTransform != nil) {
             location = locationTransform(location);
             
@@ -130,6 +137,12 @@ withTemplate:(id)locationTemplate
 withHttpHeaders:(NSMutableDictionary*)httpHeaders
   completion:(void (^ _Nonnull)(BOOL success))completion
 {
+    if (![MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+        DDLogInfo(@"%@ skipping post outside tracking window", TAG);
+        completion(NO);
+        return;
+    }
+
     NSArray *locations = [[NSArray alloc] initWithObjects:[location toResultFromTemplate:locationTemplate], nil];
     NSError *serializationError = nil;
     NSData *data = [NSJSONSerialization dataWithJSONObject:locations options:0 error:&serializationError];
@@ -206,6 +219,12 @@ withHttpHeaders:(NSMutableDictionary*)httpHeaders
 
 - (void) sync
 {
+    if (![MAURTrackingSchedule isAllowedAt:[NSDate date]]) {
+        // Spec: no upload later from the offline queue -> drop the queue instead of syncing it.
+        DDLogInfo(@"%@ purging offline queue instead of syncing outside tracking window", TAG);
+        [[MAURSQLiteLocationDAO sharedInstance] deleteAllLocations:nil];
+        return;
+    }
     if ([self.config hasValidSyncUrl]) {
         [uploader sync:self.config.syncUrl withTemplate:self.config._template withHttpHeaders:self.config.httpHeaders useWebViewCookieStore:self.config.useWebViewCookieStore];
     }
