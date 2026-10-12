@@ -617,6 +617,21 @@ export interface BackgroundGeolocationPlugin {
   ): Promise<void>;
 
   /**
+   * Whether background location ("Allow all the time") is granted.
+   * Android: true below API 29. iOS: always true (the plugin uses "Always" authorization).
+   * Platform: iOS, Android
+   */
+  hasBackgroundLocationPermission(): Promise<boolean>;
+
+  /**
+   * Request background location ("Allow all the time"). Android 11+ opens the system settings
+   * page; resolves with the resulting state once the user returns. Resolves false without
+   * asking when foreground location is not granted. iOS: resolves true.
+   * Platform: iOS, Android
+   */
+  requestBackgroundLocationPermission(): Promise<boolean>;
+
+  /**
    * Restrict tracking to the given absolute windows.
    * Outside a window the plugin enters standby: no locations are recorded or posted and the
    * foreground notification is removed. An empty array blocks tracking entirely.

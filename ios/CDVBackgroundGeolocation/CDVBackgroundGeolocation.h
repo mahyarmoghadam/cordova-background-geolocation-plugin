@@ -19,6 +19,8 @@
 - (void) start:(CDVInvokedUrlCommand*)command;
 - (void) stop:(CDVInvokedUrlCommand*)command;
 - (void) snoozeReminder:(CDVInvokedUrlCommand*)command;
+- (void) hasBackgroundLocationPermission:(CDVInvokedUrlCommand*)command;
+- (void) requestBackgroundLocationPermission:(CDVInvokedUrlCommand*)command;
 - (void) getConfig:(CDVInvokedUrlCommand*)command;
 - (void) checkStatus:(CDVInvokedUrlCommand*)command;
 - (void) switchMode:(CDVInvokedUrlCommand*)command;

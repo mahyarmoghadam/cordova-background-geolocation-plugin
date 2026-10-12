@@ -16,7 +16,12 @@ import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.Manifest;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.core.content.ContextCompat;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -82,10 +87,16 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public static final String ACTION_FORCE_SYNC = "forceSync";
     public static final String ACTION_SNOOZE_REMINDER = "snoozeReminder";
     public static final String ACTION_SET_TRACKING_WINDOWS = "setTrackingWindows";
+    public static final String ACTION_HAS_BACKGROUND_LOCATION_PERMISSION = "hasBackgroundLocationPermission";
+    public static final String ACTION_REQUEST_BACKGROUND_LOCATION_PERMISSION = "requestBackgroundLocationPermission";
+
+    private static final int REQUEST_BACKGROUND_LOCATION = 7301;
+    private static final String PERMISSION_BACKGROUND_LOCATION = "android.permission.ACCESS_BACKGROUND_LOCATION";
 
     private BackgroundGeolocationFacade facade;
 
     private CallbackContext callbackContext;
+    private CallbackContext backgroundPermissionCallback;
 
     private org.slf4j.Logger logger;
 
@@ -411,6 +422,12 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
                 }
             });
             return true;
+        } else if (ACTION_HAS_BACKGROUND_LOCATION_PERMISSION.equals(action)) {
+            callbackContext.success(hasBackgroundLocationPermission() ? 1 : 0);
+            return true;
+        } else if (ACTION_REQUEST_BACKGROUND_LOCATION_PERMISSION.equals(action)) {
+            requestBackgroundLocationPermission(callbackContext);
+            return true;
         } else if (ACTION_SET_TRACKING_WINDOWS.equals(action)) {
             runOnWebViewThread(new Runnable() {
                 public void run() {
@@ -428,6 +445,55 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         }
 
         return false;
+    }
+
+    private boolean hasBackgroundLocationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return true;
+        }
+        return ContextCompat.checkSelfPermission(getContext(), PERMISSION_BACKGROUND_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestBackgroundLocationPermission(CallbackContext callback) {
+        if (hasBackgroundLocationPermission()) {
+            callback.success(1);
+            return;
+        }
+        // Background location can only be requested once foreground location is granted.
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            callback.success(0);
+            return;
+        }
+        if (backgroundPermissionCallback != null) {
+            // a request is already in flight; resolve it with the current state
+            backgroundPermissionCallback.success(0);
+        }
+        backgroundPermissionCallback = callback;
+        // On Android 11+ the system opens the settings page; the result arrives when the user returns.
+        cordova.requestPermissions(this, REQUEST_BACKGROUND_LOCATION, new String[]{PERMISSION_BACKGROUND_LOCATION});
+    }
+
+    @Override
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode != REQUEST_BACKGROUND_LOCATION) {
+            return;
+        }
+        CallbackContext callback = backgroundPermissionCallback;
+        backgroundPermissionCallback = null;
+        // Re-check the real state: the result arrays can be empty when the request was interrupted.
+        boolean granted = hasBackgroundLocationPermission();
+        if (granted) {
+            try {
+                ScheduleEvaluator.evaluate(getContext());
+            } catch (Exception e) {
+                logger.error("Schedule evaluation after background permission failed: {}", e.getMessage());
+            }
+        }
+        if (callback != null) {
+            callback.success(granted ? 1 : 0);
+        }
     }
 
     /**

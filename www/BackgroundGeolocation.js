@@ -109,6 +109,16 @@ var BackgroundGeolocation = {
       'snoozeReminder');
   },
 
+  hasBackgroundLocationPermission: function () {
+    return execWithPromise(null, null, 'hasBackgroundLocationPermission')
+      .then(function (granted) { return !!granted; });
+  },
+
+  requestBackgroundLocationPermission: function () {
+    return execWithPromise(null, null, 'requestBackgroundLocationPermission')
+      .then(function (granted) { return !!granted; });
+  },
+
   setTrackingWindows: function (windows, success, failure) {
     return execWithPromise(success,
       failure,

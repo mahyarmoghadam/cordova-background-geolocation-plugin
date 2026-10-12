@@ -143,6 +143,22 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 }
 
 /**
+ * iOS uses "Always" authorization through the regular start flow, so background location
+ * is considered granted here (no behavior change).
+ */
+- (void) hasBackgroundLocationPermission:(CDVInvokedUrlCommand*)command
+{
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+- (void) requestBackgroundLocationPermission:(CDVInvokedUrlCommand*)command
+{
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+/**
  * Snooze the still-tracking reminder if tracking is active and no reminder is already scheduled.
  */
 - (void) snoozeReminder:(CDVInvokedUrlCommand*)command
