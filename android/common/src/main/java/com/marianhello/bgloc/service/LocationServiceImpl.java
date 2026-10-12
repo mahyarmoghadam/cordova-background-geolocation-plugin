@@ -57,6 +57,7 @@ import com.marianhello.bgloc.provider.LocationProvider;
 import com.marianhello.bgloc.provider.LocationProviderFactory;
 import com.marianhello.bgloc.provider.ProviderDelegate;
 import com.marianhello.bgloc.schedule.ScheduleAlarm;
+import com.marianhello.bgloc.schedule.ScheduleEvaluator;
 import com.marianhello.bgloc.schedule.TrackingSchedule;
 import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.bgloc.sync.AccountHelper;
@@ -134,6 +135,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private static boolean sIsRunning = false;
     private boolean mIsInForeground = false;
     private volatile boolean mStandbyRequested = false;
+    /** Current start was triggered by the schedule/system, not by JS: failures keep it armed. */
+    private volatile boolean mScheduleStart = false;
 
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
@@ -231,6 +234,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             }
         });
 
+        mPostLocationTask.setUploadGuard(new PostLocationTask.UploadGuard() {
+            @Override
+            public boolean isUploadAllowed() {
+                return TrackingScheduleStore.load(LocationServiceImpl.this).isAllowed(System.currentTimeMillis());
+            }
+        });
+
         registerReceiver(connectivityChangeReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
         NotificationHelper.registerServiceChannel(this);
     }
@@ -304,6 +314,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             public void run() {
                 if (intent == null) {
                     // when service was killed and restarted we will restart service
+                    // (system restart, not a user action: a failed start must not disarm)
+                    mScheduleStart = true;
                     start();
                     return;
                 }
@@ -321,6 +333,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     processCommand(cmd.getId(), cmd.getArgument());
                 } else {
                     // Could be a BOOT-event, or the OS just randomly restarted the service...
+                    mScheduleStart = false;
                     startForegroundService();
                 }
 
@@ -341,9 +354,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         try {
             switch (command) {
                 case CommandId.START:
+                    mScheduleStart = false;
                     start();
                     break;
                 case CommandId.START_FOREGROUND_SERVICE:
+                    mScheduleStart = ScheduleEvaluator.START_ORIGIN_SCHEDULE.equals(arg);
                     startForegroundService();
                     break;
                 case CommandId.STOP:
@@ -445,8 +460,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public synchronized void stop() {
-        // Explicit stop (JS stop, reminder "Stop", stopOnTerminate, start refused by Android)
-        // disarms the schedule.
+        // Explicit stop (JS stop, reminder "Stop", stopOnTerminate, failed JS-triggered start)
+        // disarms the schedule. Schedule-triggered start failures go to standby instead.
+        mScheduleStart = false;
         TrackingScheduleStore.setArmed(this, false);
         ScheduleAlarm.cancel(this);
 
@@ -503,10 +519,43 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         mIsInForeground = false;
         if (isForegroundServiceStartNotAllowedException(e)) {
             logger.warn("Foreground service start was not allowed by Android", e);
-            stop();
+            stopAfterStartFailure();
             return;
         }
         throw e;
+    }
+
+    /**
+     * A start/foreground start failed (permission missing, FGS refused).
+     * JS-triggered start: stop() and disarm (unchanged behavior).
+     * Schedule/system-triggered start: enter standby, keep armed, retry at the next window start.
+     *
+     * Runs on the service handler thread. When called from another thread (startForeground() runs
+     * on the UI thread inside start()'s runOnUiThreadBlocking while the handler thread holds this
+     * monitor) it is posted, so it cannot deadlock on the synchronized stop()/enterStandby().
+     */
+    private void stopAfterStartFailure() {
+        Runnable action = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    synchronized (LocationServiceImpl.this) {
+                        if (mScheduleStart && TrackingScheduleStore.isArmed(LocationServiceImpl.this)) {
+                            logger.warn("Schedule-triggered start failed; standby until next window");
+                            enterStandby(TrackingScheduleStore.load(LocationServiceImpl.this));
+                        } else {
+                            stop();
+                        }
+                    }
+                } catch (RuntimeException e) {
+                    logger.error("Handling start failure failed", e);
+                }
+            }
+        };
+        Handler handler = mServiceHandler;
+        if (handler == null || Looper.myLooper() == handler.getLooper() || !handler.post(action)) {
+            action.run();
+        }
     }
 
     protected boolean isForegroundServiceStartNotAllowedException(RuntimeException e) {
@@ -581,6 +630,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 stopSelf();
             }
         } else if (!sIsRunning) {
+            mScheduleStart = true;
             startForegroundService();
         } else {
             ScheduleAlarm.scheduleAt(this, schedule.currentWindowEnd(now));
@@ -977,6 +1027,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         String errorMessage = message != null ? message : "Location permission denied";
         PluginException error = new PluginException(errorMessage, PluginException.PERMISSION_DENIED_ERROR);
         onError(error);
-        stop();
+        stopAfterStartFailure();
     }
 }

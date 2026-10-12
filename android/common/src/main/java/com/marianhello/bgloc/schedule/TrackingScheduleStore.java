@@ -19,8 +19,14 @@ public final class TrackingScheduleStore {
 
     private TrackingScheduleStore() {}
 
+    /**
+     * MODE_MULTI_PROCESS: the SyncAdapter runs in the ":sync" process and must see windows written
+     * by the main process (re-reads the file when it changed on disk). Deprecated but functional.
+     */
+    @SuppressWarnings("deprecation")
     private static SharedPreferences prefs(Context context) {
-        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return context.getApplicationContext().getSharedPreferences(PREFS,
+                Context.MODE_PRIVATE | Context.MODE_MULTI_PROCESS);
     }
 
     public static TrackingSchedule load(Context context) {

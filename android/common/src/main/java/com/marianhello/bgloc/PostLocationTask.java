@@ -46,6 +46,14 @@ public class PostLocationTask {
         void onHttpAuthorizationUpdates();
     }
 
+    /** Optional gate checked right before uploading (e.g. tracking windows). */
+    public interface UploadGuard
+    {
+        boolean isUploadAllowed();
+    }
+
+    private volatile UploadGuard mUploadGuard;
+
     public PostLocationTask(LocationDAO dao, PostLocationTaskListener taskListener,
                             ConnectivityListener connectivityListener) {
         logger = LoggerManager.getLogger(PostLocationTask.class);
@@ -56,6 +64,10 @@ public class PostLocationTask {
         mConnectivityListener = connectivityListener;
 
         mExecutor = Executors.newSingleThreadExecutor();
+    }
+
+    public void setUploadGuard(UploadGuard guard) {
+        mUploadGuard = guard;
     }
 
     public void setConfig(Config config) {
@@ -114,6 +126,13 @@ public class PostLocationTask {
 
     private void post(final BackgroundLocation location) {
         long locationId = location.getLocationId();
+
+        UploadGuard guard = mUploadGuard;
+        if (guard != null && !guard.isUploadAllowed()) {
+            // Queued fix reached the front after the upload window closed: drop it, never sync later.
+            mLocationDAO.deleteLocationById(locationId);
+            return;
+        }
 
         if (mHasConnectivity && mConfig.hasValidUrl()) {
             if (postLocation(location)) {

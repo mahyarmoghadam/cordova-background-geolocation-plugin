@@ -18,6 +18,7 @@ import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.HttpPostService;
 import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
+import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 import com.marianhello.logging.LoggerManager;
 
@@ -88,6 +89,14 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements HttpPost
             String authority,
             ContentProviderClient provider,
             SyncResult syncResult) {
+
+        // Privacy: nothing stored may be uploaded outside a tracking window (no late upload of
+        // the offline queue). Runs in the ":sync" process; the store reads multi-process prefs.
+        if (!TrackingScheduleStore.load(getContext()).isAllowed(System.currentTimeMillis())) {
+            logger.info("Outside tracking window: purging stored locations instead of syncing");
+            DAOFactory.createLocationDAO(getContext()).deleteAllLocations();
+            return;
+        }
 
         Config config = null;
         try {
