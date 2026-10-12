@@ -27,6 +27,8 @@ import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
 import com.marianhello.bgloc.data.LocationDAO;
 import com.marianhello.bgloc.provider.LocationProvider;
+import com.marianhello.bgloc.schedule.ScheduleAlarm;
+import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.bgloc.service.LocationService;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 import com.marianhello.bgloc.service.LocationServiceProxy;
@@ -248,6 +250,9 @@ public class BackgroundGeolocationFacade {
 
     public void stop() {
         logger.debug("Stopping service");
+        // In standby the service is not running, so the STOP intent below may never be delivered.
+        TrackingScheduleStore.setArmed(mContext, false);
+        ScheduleAlarm.cancel(mContext);
         unregisterLocationModeChangeReceiver();
         // Note: we cannot unregistered service broadcast here
         // because no stop notification from service will arrive

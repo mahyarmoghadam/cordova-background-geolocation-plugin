@@ -17,6 +17,8 @@ import android.util.Log;
 
 import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
+import com.marianhello.bgloc.schedule.ScheduleEvaluator;
+import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 
 import org.json.JSONException;
@@ -30,6 +32,9 @@ public class BootCompletedReceiver extends BroadcastReceiver {
     @Override
      public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "Received boot completed");
+        // Resume schedule-armed tracking (independent of startOnBoot, which the app does not use).
+        ScheduleEvaluator.evaluate(context);
+
         ConfigurationDAO dao = DAOFactory.createConfigurationDAO(context);
         Config config = null;
 
@@ -43,7 +48,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "Boot completed " + config.toString());
 
-        if (config.getStartOnBoot()) {
+        if (config.getStartOnBoot() && !TrackingScheduleStore.isArmed(context)) {
             Log.i(TAG, "Starting service after boot");
             Intent locationServiceIntent = new Intent(context, LocationServiceImpl.class);
             locationServiceIntent.addFlags(Intent.FLAG_FROM_BACKGROUND);

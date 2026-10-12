@@ -52,6 +52,7 @@ public final class TrackingScheduleStore {
     }
 
     public static void setArmed(Context context, boolean armed) {
-        prefs(context).edit().putBoolean(KEY_ARMED, armed).apply();
+        // commit(): the flag must survive a process kill right after the write.
+        prefs(context).edit().putBoolean(KEY_ARMED, armed).commit();
     }
 }

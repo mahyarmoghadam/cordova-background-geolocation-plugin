@@ -93,6 +93,7 @@
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/provider/ProviderDelegate.java" target-dir="src/com/marianhello/bgloc/provider" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/provider/RawLocationProvider.java" target-dir="src/com/marianhello/bgloc/provider" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/ResourceResolver.java" target-dir="src/com/marianhello/bgloc" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/CommandId.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceImpl.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceInfoImpl.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceInfo.java" target-dir="src/com/marianhello/bgloc/service" />
@@ -101,6 +102,11 @@
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/service/LocationServiceProxy.java" target-dir="src/com/marianhello/bgloc/service" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/reminder/ReminderHelper.java" target-dir="src/com/marianhello/bgloc/reminder" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/reminder/ReminderReceiver.java" target-dir="src/com/marianhello/bgloc/reminder" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/schedule/TrackingSchedule.java" target-dir="src/com/marianhello/bgloc/schedule" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/schedule/TrackingScheduleStore.java" target-dir="src/com/marianhello/bgloc/schedule" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/schedule/ScheduleAlarm.java" target-dir="src/com/marianhello/bgloc/schedule" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/schedule/ScheduleEvaluator.java" target-dir="src/com/marianhello/bgloc/schedule" />
+        <source-file src="android/common/src/main/java/com/marianhello/bgloc/schedule/ScheduleReceiver.java" target-dir="src/com/marianhello/bgloc/schedule" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/AccountHelper.java" target-dir="src/com/marianhello/bgloc/sync" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/Authenticator.java" target-dir="src/com/marianhello/bgloc/sync" />
         <source-file src="android/common/src/main/java/com/marianhello/bgloc/sync/AuthenticatorService.java" target-dir="src/com/marianhello/bgloc/sync" />
@@ -163,6 +169,10 @@
                 />
             <receiver
                 android:name="com.marianhello.bgloc.reminder.ReminderReceiver"
+                android:exported="false" />
+            <receiver
+                android:name="com.marianhello.bgloc.schedule.ScheduleReceiver"
+                android:enabled="true"
                 android:exported="false" />
             <receiver
                   android:name="com.marianhello.bgloc.BootCompletedReceiver"

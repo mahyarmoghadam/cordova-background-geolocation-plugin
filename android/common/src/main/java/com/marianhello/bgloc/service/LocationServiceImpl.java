@@ -56,6 +56,9 @@ import com.marianhello.bgloc.headless.TaskRunnerFactory;
 import com.marianhello.bgloc.provider.LocationProvider;
 import com.marianhello.bgloc.provider.LocationProviderFactory;
 import com.marianhello.bgloc.provider.ProviderDelegate;
+import com.marianhello.bgloc.schedule.ScheduleAlarm;
+import com.marianhello.bgloc.schedule.TrackingSchedule;
+import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.bgloc.sync.AccountHelper;
 import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.LoggerManager;
@@ -130,6 +133,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private long mServiceId = -1;
     private static boolean sIsRunning = false;
     private boolean mIsInForeground = false;
+    private volatile boolean mStandbyRequested = false;
 
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
@@ -363,6 +367,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 case CommandId.STOP_HEADLESS_TASK:
                     stopHeadlessTask();
                     break;
+                case CommandId.EVALUATE_SCHEDULE:
+                    evaluateSchedule();
+                    break;
             }
         } catch (Exception e) {
             logger.error("processCommand: exception", e);
@@ -385,6 +392,15 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             mConfig = getConfig();
             // TODO: throw JSONException if config cannot be obtained from db
         }
+
+        TrackingScheduleStore.setArmed(this, true);
+        TrackingSchedule schedule = TrackingScheduleStore.load(this);
+        long now = System.currentTimeMillis();
+        if (!schedule.isAllowed(now)) {
+            enterStandby(schedule);
+            return;
+        }
+        ScheduleAlarm.scheduleAt(this, schedule.currentWindowEnd(now));
 
         logger.debug("Will start service with: {}", mConfig.toString());
 
@@ -429,6 +445,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public synchronized void stop() {
+        // Explicit stop (JS stop, reminder "Stop", stopOnTerminate, start refused by Android)
+        // disarms the schedule.
+        TrackingScheduleStore.setArmed(this, false);
+        ScheduleAlarm.cancel(this);
+
         if (!sIsRunning) {
             return;
         }
@@ -503,6 +524,100 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             }
             mIsInForeground = false;
         }
+    }
+
+    /**
+     * Outside working hours: stop collecting, purge stored locations, remove the foreground
+     * notification and wake up again at the next window start.
+     * Does not call stop(): the schedule stays armed. Must run on the service handler thread.
+     */
+    private synchronized void enterStandby(TrackingSchedule schedule) {
+        logger.info("Entering schedule standby");
+        if (sIsRunning && mProvider != null) {
+            mProvider.onStop();
+        }
+        ReminderHelper.cancel(this);
+        mPostLocationTask.clearQueue();
+        mLocationDAO.deleteAllLocations();
+        ScheduleAlarm.scheduleAt(this, schedule.nextWindowStart(System.currentTimeMillis()));
+
+        // A service started with startForegroundService() must call startForeground() before stopping.
+        // super.startForeground() on purpose: this.startForeground() would call stop() (disarm) on failure.
+        if (!mIsInForeground) {
+            try {
+                Config config = getConfig();
+                Notification notification = new NotificationHelper.NotificationFactory(this).getNotification(
+                        config.getNotificationTitle(),
+                        config.getNotificationText(),
+                        config.getLargeNotificationIcon(),
+                        config.getSmallNotificationIcon(),
+                        config.getNotificationIconColor());
+                super.startForeground(NOTIFICATION_ID, notification);
+            } catch (RuntimeException e) {
+                logger.debug("startForeground before standby not possible", e);
+            }
+        }
+        stopForeground(true);
+        mIsInForeground = false;
+        boolean wasRunning = sIsRunning;
+        sIsRunning = false;
+        stopSelf();
+        if (wasRunning) {
+            broadcastMessage(MSG_ON_SERVICE_STOPPED);
+        }
+    }
+
+    /** EVALUATE_SCHEDULE command (alarm at window start/end or new windows from JS). */
+    private synchronized void evaluateSchedule() {
+        TrackingSchedule schedule = TrackingScheduleStore.load(this);
+        long now = System.currentTimeMillis();
+        if (!schedule.isAllowed(now)) {
+            if (sIsRunning) {
+                enterStandby(schedule);
+            } else {
+                // Already in standby (the command raced with it): only re-arm the alarm.
+                // Sent with startService(), so there is no startForeground() obligation.
+                ScheduleAlarm.scheduleAt(this, schedule.nextWindowStart(now));
+                stopSelf();
+            }
+        } else if (!sIsRunning) {
+            startForegroundService();
+        } else {
+            ScheduleAlarm.scheduleAt(this, schedule.currentWindowEnd(now));
+        }
+    }
+
+    /**
+     * Called from provider callbacks (any thread). Never enters standby inline: the handler thread
+     * may hold this monitor inside start() while blocking on the UI thread (runOnUiThreadBlocking).
+     */
+    private boolean dropIfOutsideWindow() {
+        if (TrackingScheduleStore.load(this).isAllowed(System.currentTimeMillis())) {
+            return false;
+        }
+        // Late fix after the window ended (alarm delayed): drop it and go to standby.
+        logger.debug("Dropping location outside tracking window");
+        if (!mStandbyRequested) {
+            mStandbyRequested = true;
+            mServiceHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    mStandbyRequested = false;
+                    try {
+                        synchronized (LocationServiceImpl.this) {
+                            TrackingSchedule schedule = TrackingScheduleStore.load(LocationServiceImpl.this);
+                            if (sIsRunning && !schedule.isAllowed(System.currentTimeMillis())) {
+                                enterStandby(schedule);
+                            }
+                        }
+                    } catch (RuntimeException e) {
+                        // e.g. PostLocationTask executor already shut down by onDestroy().
+                        logger.error("Entering standby failed", e);
+                    }
+                }
+            });
+        }
+        return true;
     }
 
     @Override
@@ -607,6 +722,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     public void onLocation(BackgroundLocation location) {
         logger.debug("New location {}", location.toString());
 
+        if (dropIfOutsideWindow()) {
+            return;
+        }
+
         location = transformLocation(location);
         if (location == null) {
             logger.debug("Skipping location as requested by the locationTransform");
@@ -636,6 +755,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @Override
     public void onStationary(BackgroundLocation location) {
         logger.debug("New stationary {}", location.toString());
+
+        if (dropIfOutsideWindow()) {
+            return;
+        }
 
         location = transformLocation(location);
         if (location == null) {
@@ -791,6 +914,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     }
 
     private void postLocation(BackgroundLocation location) {
+        // Last line of defense: never store or upload a location outside a tracking window.
+        if (!TrackingScheduleStore.load(this).isAllowed(System.currentTimeMillis())) {
+            return;
+        }
         mPostLocationTask.add(location);
     }
 

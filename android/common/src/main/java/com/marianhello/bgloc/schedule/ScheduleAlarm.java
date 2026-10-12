@@ -33,7 +33,12 @@ public final class ScheduleAlarm {
         PendingIntent pi = pendingIntent(context);
         boolean canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms();
         if (canExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi);
+            try {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi);
+            } catch (SecurityException e) {
+                // Exact-alarm access revoked between the check and the call.
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi);
+            }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             // Exact alarms revoked by the user: may fire a few minutes late.
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi);

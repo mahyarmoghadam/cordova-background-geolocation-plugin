@@ -67,6 +67,7 @@
             </intent-filter>
         </receiver>
         <receiver android:enabled="true" android:exported="false" android:name="com.marianhello.bgloc.reminder.ReminderReceiver" />
+        <receiver android:enabled="true" android:exported="false" android:name="com.marianhello.bgloc.schedule.ScheduleReceiver" />
         <uses-library android:name="org.apache.http.legacy" android:required="true" />
     </application>
 </manifest>

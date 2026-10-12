@@ -30,6 +30,8 @@ import com.marianhello.bgloc.cordova.headless.JsEvaluatorTaskRunner;
 import com.marianhello.bgloc.data.BackgroundActivity;
 import com.marianhello.bgloc.data.BackgroundLocation;
 import com.marianhello.bgloc.reminder.ReminderHelper;
+import com.marianhello.bgloc.schedule.ScheduleEvaluator;
+import com.marianhello.bgloc.schedule.TrackingScheduleStore;
 import com.marianhello.logging.LogEntry;
 import com.marianhello.logging.LoggerManager;
 
@@ -79,6 +81,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public static final String ACTION_REGISTER_HEADLESS_TASK = "registerHeadlessTask";
     public static final String ACTION_FORCE_SYNC = "forceSync";
     public static final String ACTION_SNOOZE_REMINDER = "snoozeReminder";
+    public static final String ACTION_SET_TRACKING_WINDOWS = "setTrackingWindows";
 
     private BackgroundGeolocationFacade facade;
 
@@ -404,6 +407,20 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
                         callbackContext.success();
                     } catch (Exception e) {
                         callbackContext.sendPluginResult(ErrorPluginResult.from("Snooze reminder failed", e, PluginException.SERVICE_ERROR));
+                    }
+                }
+            });
+            return true;
+        } else if (ACTION_SET_TRACKING_WINDOWS.equals(action)) {
+            runOnWebViewThread(new Runnable() {
+                public void run() {
+                    try {
+                        JSONArray windows = data.optJSONArray(0);
+                        TrackingScheduleStore.save(getContext(), windows != null ? windows.toString() : "[]");
+                        ScheduleEvaluator.evaluate(getContext());
+                        callbackContext.success();
+                    } catch (Exception e) {
+                        callbackContext.sendPluginResult(ErrorPluginResult.from("Set tracking windows failed", e, PluginException.SERVICE_ERROR));
                     }
                 }
             });
