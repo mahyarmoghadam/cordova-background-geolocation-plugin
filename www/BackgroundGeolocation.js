@@ -109,6 +109,13 @@ var BackgroundGeolocation = {
       'snoozeReminder');
   },
 
+  setTrackingWindows: function (windows, success, failure) {
+    return execWithPromise(success,
+      failure,
+      'setTrackingWindows',
+      [windows || []]);
+  },
+
   switchMode: function (mode, success, failure) {
     return execWithPromise(success,
       failure,

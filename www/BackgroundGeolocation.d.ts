@@ -29,6 +29,12 @@ export interface ReminderNotificationTap {
   timestamp: number;
 }
 
+/** Absolute tracking window in epoch milliseconds, [start, end). */
+export interface TrackingWindow {
+  start: number;
+  end: number;
+}
+
 export interface ConfigureOptions {
   /**
    * Set location provider
@@ -609,6 +615,15 @@ export interface BackgroundGeolocationPlugin {
     success?: () => void,
     fail?: (error: BackgroundGeolocationError) => void
   ): Promise<void>;
+
+  /**
+   * Restrict tracking to the given absolute windows.
+   * Outside a window the plugin enters standby: no locations are recorded or posted and the
+   * foreground notification is removed. An empty array blocks tracking entirely.
+   * Never calling this method keeps the plugin unrestricted.
+   * Platform: iOS, Android
+   */
+  setTrackingWindows(windows: TrackingWindow[]): Promise<void>;
 
   /**
    * One time location check to get current location of the device.
