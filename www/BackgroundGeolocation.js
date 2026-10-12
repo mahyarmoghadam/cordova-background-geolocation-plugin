@@ -119,6 +119,16 @@ var BackgroundGeolocation = {
       .then(function (granted) { return !!granted; });
   },
 
+  canScheduleExactAlarms: function () {
+    return execWithPromise(null, null, 'canScheduleExactAlarms')
+      .then(function (granted) { return !!granted; });
+  },
+
+  requestExactAlarmPermission: function () {
+    return execWithPromise(null, null, 'requestExactAlarmPermission')
+      .then(function (granted) { return !!granted; });
+  },
+
   setTrackingWindows: function (windows, success, failure) {
     return execWithPromise(success,
       failure,

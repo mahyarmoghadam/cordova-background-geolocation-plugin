@@ -159,6 +159,21 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 }
 
 /**
+ * Exact alarms are an Android concept; iOS needs no extra access (no behavior change).
+ */
+- (void) canScheduleExactAlarms:(CDVInvokedUrlCommand*)command
+{
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+- (void) requestExactAlarmPermission:(CDVInvokedUrlCommand*)command
+{
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+/**
  * Snooze the still-tracking reminder if tracking is active and no reminder is already scheduled.
  */
 - (void) snoozeReminder:(CDVInvokedUrlCommand*)command

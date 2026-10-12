@@ -21,6 +21,8 @@
 - (void) snoozeReminder:(CDVInvokedUrlCommand*)command;
 - (void) hasBackgroundLocationPermission:(CDVInvokedUrlCommand*)command;
 - (void) requestBackgroundLocationPermission:(CDVInvokedUrlCommand*)command;
+- (void) canScheduleExactAlarms:(CDVInvokedUrlCommand*)command;
+- (void) requestExactAlarmPermission:(CDVInvokedUrlCommand*)command;
 - (void) getConfig:(CDVInvokedUrlCommand*)command;
 - (void) checkStatus:(CDVInvokedUrlCommand*)command;
 - (void) switchMode:(CDVInvokedUrlCommand*)command;

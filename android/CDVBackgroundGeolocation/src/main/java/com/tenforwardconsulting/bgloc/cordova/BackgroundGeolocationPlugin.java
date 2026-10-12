@@ -12,6 +12,7 @@ Differences to original version:
 package com.tenforwardconsulting.bgloc.cordova;
 
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -19,7 +20,9 @@ import android.content.Intent;
 import android.Manifest;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 
 import androidx.core.content.ContextCompat;
 
@@ -89,6 +92,8 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
     public static final String ACTION_SET_TRACKING_WINDOWS = "setTrackingWindows";
     public static final String ACTION_HAS_BACKGROUND_LOCATION_PERMISSION = "hasBackgroundLocationPermission";
     public static final String ACTION_REQUEST_BACKGROUND_LOCATION_PERMISSION = "requestBackgroundLocationPermission";
+    public static final String ACTION_CAN_SCHEDULE_EXACT_ALARMS = "canScheduleExactAlarms";
+    public static final String ACTION_REQUEST_EXACT_ALARM_PERMISSION = "requestExactAlarmPermission";
 
     private static final int REQUEST_BACKGROUND_LOCATION = 7301;
     private static final String PERMISSION_BACKGROUND_LOCATION = "android.permission.ACCESS_BACKGROUND_LOCATION";
@@ -97,6 +102,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
 
     private CallbackContext callbackContext;
     private CallbackContext backgroundPermissionCallback;
+    private CallbackContext exactAlarmPermissionCallback;
 
     private org.slf4j.Logger logger;
 
@@ -428,6 +434,17 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         } else if (ACTION_REQUEST_BACKGROUND_LOCATION_PERMISSION.equals(action)) {
             requestBackgroundLocationPermission(callbackContext);
             return true;
+        } else if (ACTION_CAN_SCHEDULE_EXACT_ALARMS.equals(action)) {
+            callbackContext.success(canScheduleExactAlarms() ? 1 : 0);
+            return true;
+        } else if (ACTION_REQUEST_EXACT_ALARM_PERMISSION.equals(action)) {
+            // UI thread: the pending callback is also resolved from onResume
+            getActivity().runOnUiThread(new Runnable() {
+                public void run() {
+                    requestExactAlarmPermission(callbackContext);
+                }
+            });
+            return true;
         } else if (ACTION_SET_TRACKING_WINDOWS.equals(action)) {
             runOnWebViewThread(new Runnable() {
                 public void run() {
@@ -468,7 +485,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         }
         if (backgroundPermissionCallback != null) {
             // a request is already in flight; resolve it with the current state
-            backgroundPermissionCallback.success(0);
+            backgroundPermissionCallback.success(hasBackgroundLocationPermission() ? 1 : 0);
         }
         backgroundPermissionCallback = callback;
         // On Android 11+ the system opens the settings page; the result arrives when the user returns.
@@ -496,6 +513,57 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         }
     }
 
+    private boolean canScheduleExactAlarms() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return true;
+        }
+        AlarmManager am = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        return am != null && am.canScheduleExactAlarms();
+    }
+
+    /**
+     * Opens the "Alarms & reminders" settings page for this app. The callback is resolved with a
+     * re-check when the app is resumed (see {@link #onResume(boolean)}).
+     */
+    private void requestExactAlarmPermission(CallbackContext callback) {
+        if (canScheduleExactAlarms()) {
+            callback.success(1);
+            return;
+        }
+        if (exactAlarmPermissionCallback != null) {
+            // a request is already in flight; resolve it with the current state
+            exactAlarmPermissionCallback.success(canScheduleExactAlarms() ? 1 : 0);
+        }
+        exactAlarmPermissionCallback = callback;
+        try {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + getContext().getPackageName()));
+            getActivity().startActivity(intent);
+        } catch (Exception e) {
+            logger.error("Opening exact alarm settings failed: {}", e.getMessage());
+            resolveExactAlarmPermissionCallback();
+        }
+    }
+
+    /** Resolves a pending exact-alarm request with the current state; re-arms the schedule on grant. */
+    private void resolveExactAlarmPermissionCallback() {
+        CallbackContext callback = exactAlarmPermissionCallback;
+        if (callback == null) {
+            return;
+        }
+        exactAlarmPermissionCallback = null;
+        boolean granted = canScheduleExactAlarms();
+        if (granted) {
+            try {
+                // reschedules the next window alarm as an exact alarm
+                ScheduleEvaluator.evaluate(getContext());
+            } catch (Exception e) {
+                logger.error("Schedule evaluation after exact alarm permission failed: {}", e.getMessage());
+            }
+        }
+        callback.success(granted ? 1 : 0);
+    }
+
     /**
      * Called when the system is about to start resuming a previous activity.
      *
@@ -516,6 +584,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         logger.info("App will be resumed multitasking={}", multitasking);
         facade.resume();
         handleReminderNotificationTap(getActivity().getIntent());
+        resolveExactAlarmPermissionCallback();
         sendEvent(FOREGROUND_EVENT);
     }
 

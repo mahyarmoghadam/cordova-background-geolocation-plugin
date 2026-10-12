@@ -632,6 +632,21 @@ export interface BackgroundGeolocationPlugin {
   requestBackgroundLocationPermission(): Promise<boolean>;
 
   /**
+   * Whether exact alarms ("Alarms & reminders") may be scheduled. Needed on Android 12+ so the
+   * working-hours start alarm is exact and may start background location tracking.
+   * Android: true below API 31. iOS: always true.
+   * Platform: iOS, Android
+   */
+  canScheduleExactAlarms(): Promise<boolean>;
+
+  /**
+   * Request exact-alarm access. Android 12+ opens the "Alarms & reminders" settings page for the
+   * app; resolves with the resulting state once the app is resumed. iOS: resolves true.
+   * Platform: iOS, Android
+   */
+  requestExactAlarmPermission(): Promise<boolean>;
+
+  /**
    * Restrict tracking to the given absolute windows.
    * Outside a window the plugin enters standby: no locations are recorded or posted and the
    * foreground notification is removed. An empty array blocks tracking entirely.
