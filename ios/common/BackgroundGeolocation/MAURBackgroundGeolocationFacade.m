@@ -402,6 +402,8 @@ FMDBLogger *sqliteLogger;
     BOOL started = [self start:&error];
     if (!started || !isStarted) {
         // Keep the schedule armed (mirrors Android): retry on the next wake-up.
+        // State after this branch is "armed standby" (isStarted YES, isStandby YES), so
+        // checkStatus reports isRunning = NO instead of claiming tracking runs.
         DDLogError(@"%@ leaveStandby start failed: %@", TAG, error);
         lastResumeFailure = [NSDate date];
         isStarted = YES;

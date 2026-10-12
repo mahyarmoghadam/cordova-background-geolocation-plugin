@@ -33,7 +33,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
      public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "Received boot completed");
         // Resume schedule-armed tracking (independent of startOnBoot, which the app does not use).
-        ScheduleEvaluator.evaluate(context);
+        ScheduleEvaluator.evaluate(context, false);
 
         ConfigurationDAO dao = DAOFactory.createConfigurationDAO(context);
         Config config = null;

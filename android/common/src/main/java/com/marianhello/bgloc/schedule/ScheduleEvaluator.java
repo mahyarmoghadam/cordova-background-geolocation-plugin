@@ -26,7 +26,12 @@ public final class ScheduleEvaluator {
 
     private ScheduleEvaluator() {}
 
-    public static void evaluate(Context context) {
+    /**
+     * @param fromForeground true when called while the app is in the foreground (plugin
+     *     setTrackingWindows / permission results): a foreground start only needs while-in-use
+     *     location. false for alarm/boot paths, which also need ACCESS_BACKGROUND_LOCATION on Q+.
+     */
+    public static void evaluate(Context context, boolean fromForeground) {
         TrackingSchedule schedule = TrackingScheduleStore.load(context);
         long now = System.currentTimeMillis();
         boolean allowed = schedule.isAllowed(now);
@@ -49,7 +54,7 @@ public final class ScheduleEvaluator {
                         .build();
                 context.startService(intent);
             } else if (allowed) {
-                if (!hasStartPermissions(context)) {
+                if (!hasStartPermissions(context, fromForeground)) {
                     // Starting would fail (SecurityException / FGS timeout). Stay armed and
                     // retry at the next window start.
                     logger.warn("Tracking window open but location permission missing; retry at next window");
@@ -79,9 +84,12 @@ public final class ScheduleEvaluator {
         }
     }
 
-    private static boolean hasStartPermissions(Context context) {
+    private static boolean hasStartPermissions(Context context, boolean fromForeground) {
         if (!BackgroundGeolocationFacade.hasPermissions(context, BackgroundGeolocationFacade.PERMISSIONS)) {
             return false;
+        }
+        if (fromForeground) {
+            return true; // foreground start: while-in-use location is enough
         }
         // Started from the background (alarm / boot): a location FGS needs background location on Q+.
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q

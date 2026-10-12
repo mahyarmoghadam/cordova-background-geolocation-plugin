@@ -10,6 +10,6 @@ public class ScheduleReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        ScheduleEvaluator.evaluate(context);
+        ScheduleEvaluator.evaluate(context, false);
     }
 }

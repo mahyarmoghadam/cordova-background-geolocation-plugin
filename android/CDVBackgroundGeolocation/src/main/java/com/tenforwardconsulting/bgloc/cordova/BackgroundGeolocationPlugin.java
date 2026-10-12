@@ -451,7 +451,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
                     try {
                         JSONArray windows = data.optJSONArray(0);
                         TrackingScheduleStore.save(getContext(), windows != null ? windows.toString() : "[]");
-                        ScheduleEvaluator.evaluate(getContext());
+                        ScheduleEvaluator.evaluate(getContext(), true);
                         callbackContext.success();
                     } catch (Exception e) {
                         callbackContext.sendPluginResult(ErrorPluginResult.from("Set tracking windows failed", e, PluginException.SERVICE_ERROR));
@@ -503,7 +503,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         boolean granted = hasBackgroundLocationPermission();
         if (granted) {
             try {
-                ScheduleEvaluator.evaluate(getContext());
+                ScheduleEvaluator.evaluate(getContext(), true);
             } catch (Exception e) {
                 logger.error("Schedule evaluation after background permission failed: {}", e.getMessage());
             }
@@ -556,7 +556,7 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
         if (granted) {
             try {
                 // reschedules the next window alarm as an exact alarm
-                ScheduleEvaluator.evaluate(getContext());
+                ScheduleEvaluator.evaluate(getContext(), true);
             } catch (Exception e) {
                 logger.error("Schedule evaluation after exact alarm permission failed: {}", e.getMessage());
             }

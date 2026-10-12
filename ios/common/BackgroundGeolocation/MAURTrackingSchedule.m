@@ -19,8 +19,10 @@ static NSString * const kWindowsKey = @"MAURTrackingWindows";
         if (end.longLongValue <= start.longLongValue) continue;
         [valid addObject:@[start, end]];
     }
-    [valid sortUsingComparator:^NSComparisonResult(NSArray *a, NSArray *b) {
-        return [a[0] compare:b[0]];
+    [valid sortUsingComparator:^NSComparisonResult(id a, id b) {
+        NSNumber *startA = (NSNumber *)((NSArray *)a)[0];
+        NSNumber *startB = (NSNumber *)((NSArray *)b)[0];
+        return [startA compare:startB];
     }];
     [[NSUserDefaults standardUserDefaults] setObject:valid forKey:kWindowsKey];
 }

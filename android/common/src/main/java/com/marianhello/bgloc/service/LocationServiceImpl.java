@@ -137,6 +137,12 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private volatile boolean mStandbyRequested = false;
     /** Current start was triggered by the schedule/system, not by JS: failures keep it armed. */
     private volatile boolean mScheduleStart = false;
+    /**
+     * True while a startForegroundService() call (START_FOREGROUND_SERVICE command, boot intent,
+     * system restart) has not yet been answered with startForeground(). Only then enterStandby()
+     * posts its short-lived notification; plain startService() launches must not flash it.
+     */
+    private volatile boolean mForegroundStartPending = false;
 
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
@@ -316,6 +322,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     // when service was killed and restarted we will restart service
                     // (system restart, not a user action: a failed start must not disarm)
                     mScheduleStart = true;
+                    mForegroundStartPending = true;
                     start();
                     return;
                 }
@@ -334,6 +341,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 } else {
                     // Could be a BOOT-event, or the OS just randomly restarted the service...
                     mScheduleStart = false;
+                    mForegroundStartPending = true;
                     startForegroundService();
                 }
 
@@ -359,6 +367,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     break;
                 case CommandId.START_FOREGROUND_SERVICE:
                     mScheduleStart = ScheduleEvaluator.START_ORIGIN_SCHEDULE.equals(arg);
+                    mForegroundStartPending = true;
                     startForegroundService();
                     break;
                 case CommandId.STOP:
@@ -501,6 +510,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             try {
                 super.startForeground(NOTIFICATION_ID, notification);
                 mIsInForeground = true;
+                mForegroundStartPending = false;
                 if (mProvider != null) {
                     mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
                             LocationProvider.FOREGROUND_MODE);
@@ -592,7 +602,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         // A service started with startForegroundService() must call startForeground() before stopping.
         // super.startForeground() on purpose: this.startForeground() would call stop() (disarm) on failure.
-        if (!mIsInForeground) {
+        // Only when that obligation is pending: a normal app launch outside hours (startService)
+        // must not flash the tracking notification.
+        if (!mIsInForeground && mForegroundStartPending) {
             try {
                 Config config = getConfig();
                 Notification notification = new NotificationHelper.NotificationFactory(this).getNotification(
@@ -606,6 +618,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 logger.debug("startForeground before standby not possible", e);
             }
         }
+        mForegroundStartPending = false;
         stopForeground(true);
         mIsInForeground = false;
         boolean wasRunning = sIsRunning;

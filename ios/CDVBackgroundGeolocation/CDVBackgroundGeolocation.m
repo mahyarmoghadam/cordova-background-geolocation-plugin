@@ -240,7 +240,8 @@ static NSString * const TAG = @"CDVBackgroundGeolocation";
 {
     NSLog(@"%@ #%@", TAG, @"checkStatus");
     [self.commandDelegate runInBackground:^{
-        BOOL isRunning = [facade isStarted];
+        // Armed schedule standby is not running (matches Android: started && !standby).
+        BOOL isRunning = [facade isStarted] && ![facade isStandby];
         BOOL locationServicesEnabled = [facade locationServicesEnabled];
         NSInteger authorizationStatus = [facade authorizationStatus];
 
